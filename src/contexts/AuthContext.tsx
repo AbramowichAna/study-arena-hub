@@ -8,7 +8,6 @@ type Profile = {
   email: string;
   avatar_url: string | null;
   total_points: number;
-  streak_days: number;
 };
 
 type AuthCtx = {

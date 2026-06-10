@@ -1,19 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Timer, Trophy, Flame, Clock, Users } from "lucide-react";
+import { Plus, Timer, Clock, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -26,16 +24,19 @@ type Room = {
   room_participants: { id: string }[];
 };
 
+const FOCUS_OPTIONS = [15, 20, 25, 30, 45, 50];
+const BREAK_OPTIONS = [5, 10, 15];
+
 function Dashboard() {
   const { profile, user } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
-  const [stats, setStats] = useState({ weekSessions: 0, todayMinutes: 0, streak: 0 });
-  const [leaderboard, setLeaderboard] = useState<{ name: string; points: number }[]>([]);
-  const [activity, setActivity] = useState<{ id: string; type: string; points: number; created_at: string; name: string }[]>([]);
+  const [stats, setStats] = useState({ weekSessions: 0, todayMinutes: 0 });
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGroup, setNewGroup] = useState<string>("");
+  const [focusMin, setFocusMin] = useState("25");
+  const [breakMin, setBreakMin] = useState("5");
 
   const load = async () => {
     const [{ data: r }, { data: g }] = await Promise.all([
@@ -45,33 +46,13 @@ function Dashboard() {
     setRooms((r as any) ?? []);
     setGroups(((g ?? []) as any).map((x: any) => x.groups).filter(Boolean));
 
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    const { data: pe } = await supabase
-      .from("point_events")
-      .select("id,type,points,created_at,profiles(name)")
-      .gte("created_at", weekAgo)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    const events = (pe ?? []) as any[];
-    setActivity(events.slice(0, 8).map(e => ({ id: e.id, type: e.type, points: e.points, created_at: e.created_at, name: e.profiles?.name ?? "Someone" })));
-
-    // leaderboard
-    const totals = new Map<string, { name: string; points: number }>();
-    for (const e of events) {
-      const key = e.profiles?.name ?? "?";
-      const cur = totals.get(key) ?? { name: key, points: 0 };
-      cur.points += e.points;
-      totals.set(key, cur);
-    }
-    setLeaderboard(Array.from(totals.values()).sort((a, b) => b.points - a.points).slice(0, 5));
-
-    // user stats
     if (user) {
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       const { data: myEvents } = await supabase
         .from("point_events").select("type,created_at")
         .eq("user_id", user.id).gte("created_at", weekAgo);
       const weekSessions = (myEvents ?? []).filter((e: any) => e.type === "session_complete").length;
-      setStats({ weekSessions, todayMinutes: weekSessions * 25, streak: profile?.streak_days ?? 0 });
+      setStats({ weekSessions, todayMinutes: weekSessions * 25 });
     }
   };
 
@@ -81,12 +62,16 @@ function Dashboard() {
     if (!newName || !newGroup || !user) return;
     const { data, error } = await supabase
       .from("rooms")
-      .insert({ name: newName, group_id: newGroup, created_by: user.id, status: "active" })
+      .insert({
+        name: newName, group_id: newGroup, created_by: user.id, status: "active",
+        focus_duration_minutes: Number(focusMin),
+        break_duration_minutes: Number(breakMin),
+      })
       .select().single();
     if (error) return toast.error(error.message);
     await supabase.from("room_participants").insert({ room_id: data.id, user_id: user.id });
     toast.success("Room created");
-    setOpen(false); setNewName(""); setNewGroup("");
+    setOpen(false); setNewName(""); setNewGroup(""); setFocusMin("25"); setBreakMin("5");
     load();
   };
 
@@ -104,11 +89,10 @@ function Dashboard() {
         <p className="text-muted-foreground text-sm mt-1">Ready for a focus session?</p>
       </div>
 
-      {/* stats */}
       <div className="grid grid-cols-3 gap-4">
         <StatCard icon={Timer} label="Sessions this week" value={String(stats.weekSessions)} accent="text-primary bg-primary/10" />
         <StatCard icon={Clock} label="Study time today" value={`${stats.todayMinutes} min`} accent="text-success bg-success/10" progress={Math.min(100, (stats.todayMinutes / 120) * 100)} />
-        <StatCard icon={Flame} label="Current streak" value={`${stats.streak} days`} accent="text-warning bg-warning/10" />
+        <StatCard icon={Users} label="My groups" value={String(groups.length)} accent="text-warning bg-warning/10" />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -127,6 +111,22 @@ function Dashboard() {
                       <SelectTrigger><SelectValue placeholder={groups.length ? "Choose group" : "Create a group first"} /></SelectTrigger>
                       <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
                     </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Focus (min)</Label>
+                      <Select value={focusMin} onValueChange={setFocusMin}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{FOCUS_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Break (min)</Label>
+                      <Select value={breakMin} onValueChange={setBreakMin}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{BREAK_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter><Button onClick={createRoom} disabled={!newName || !newGroup}>Create & start</Button></DialogFooter>
@@ -166,48 +166,25 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Card className="p-4 border-[0.5px]">
-            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Weekly leaderboard</h3>
+            <h3 className="font-semibold text-sm mb-3">Your groups</h3>
             <div className="space-y-2">
-              {leaderboard.length === 0 && <p className="text-xs text-muted-foreground">No activity this week.</p>}
-              {leaderboard.map((u, i) => (
-                <div key={u.name} className="flex items-center gap-2">
-                  <div className="text-xs font-medium text-muted-foreground w-4">{i + 1}</div>
-                  <Avatar name={u.name} size={24} />
-                  <div className="text-sm flex-1 truncate">{u.name}</div>
-                  <div className="text-xs font-medium">{u.points}</div>
-                </div>
+              {groups.length === 0 && <p className="text-xs text-muted-foreground">You haven't joined any groups yet.</p>}
+              {groups.map(g => (
+                <Link key={g.id} to="/groups/$groupId" params={{ groupId: g.id }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="truncate">{g.name}</span>
+                </Link>
               ))}
-            </div>
-          </Card>
-
-          <Card className="p-4 border-[0.5px]">
-            <h3 className="font-semibold text-sm mb-3">Recent activity</h3>
-            <div className="space-y-2.5">
-              {activity.length === 0 && <p className="text-xs text-muted-foreground">No recent activity.</p>}
-              {activity.map(a => (
-                <div key={a.id} className="text-xs flex items-start gap-2">
-                  <div className={`h-1.5 w-1.5 rounded-full mt-1.5 ${a.points > 0 ? "bg-success" : "bg-destructive"}`} />
-                  <div className="flex-1">
-                    <div className="text-foreground"><span className="font-medium">{a.name}</span> {labelFor(a.type)} <span className={a.points > 0 ? "text-success" : "text-destructive"}>{a.points > 0 ? "+" : ""}{a.points} pts</span></div>
-                    <div className="text-muted-foreground">{formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</div>
-                  </div>
-                </div>
-              ))}
+              <Link to="/groups" className="text-xs text-primary hover:underline pt-2 block">Manage groups →</Link>
             </div>
           </Card>
         </div>
       </div>
     </div>
   );
-}
-
-function labelFor(t: string) {
-  if (t === "session_complete") return "completed a session";
-  if (t === "abandon_penalty") return "abandoned a session";
-  if (t === "quiz_score") return "scored on a quiz";
-  return t;
 }
 
 function StatCard({ icon: Icon, label, value, accent, progress }: { icon: any; label: string; value: string; accent: string; progress?: number }) {

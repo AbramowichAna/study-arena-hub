@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,10 +8,18 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/register")({ component: RegisterPage });
+type RegisterSearch = { invite?: string };
+
+export const Route = createFileRoute("/register")({
+  component: RegisterPage,
+  validateSearch: (s: Record<string, unknown>): RegisterSearch => ({
+    invite: typeof s.invite === "string" ? s.invite : undefined,
+  }),
+});
 
 function RegisterPage() {
   const navigate = useNavigate();
+  const { invite } = useSearch({ from: "/register" });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,15 +28,28 @@ function RegisterPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const redirect = invite
+      ? `${window.location.origin}/join/${invite}`
+      : `${window.location.origin}/dashboard`;
+    const { data, error } = await supabase.auth.signUp({
       email, password,
       options: {
         data: { name },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: redirect,
       },
     });
     setLoading(false);
     if (error) return toast.error(error.message);
+
+    // If session is immediately available (auto-confirm) and invite present, join now
+    if (data.session && invite) {
+      navigate({ to: "/join/$inviteCode", params: { inviteCode: invite } });
+      return;
+    }
+    if (data.session) {
+      navigate({ to: "/dashboard" });
+      return;
+    }
     toast.success("Account created! Check your email to verify, then sign in.");
     navigate({ to: "/login" });
   };
@@ -42,7 +63,9 @@ function RegisterPage() {
           </div>
           <div>
             <div className="font-semibold text-lg">Study Arena</div>
-            <div className="text-xs text-muted-foreground">Create your account</div>
+            <div className="text-xs text-muted-foreground">
+              {invite ? "Sign up to join a group" : "Create your account"}
+            </div>
           </div>
         </div>
         <form onSubmit={submit} className="space-y-4">

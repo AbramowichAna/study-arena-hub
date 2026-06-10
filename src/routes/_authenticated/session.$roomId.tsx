@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, SkipForward, X, Send, ArrowLeft } from "lucide-react";
+import { Pause, Play, SkipForward, X, Send, ArrowLeft, Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,9 @@ export const Route = createFileRoute("/_authenticated/session/$roomId")({
   component: SessionPage,
 });
 
-const FOCUS = 25 * 60;
-const BREAK = 5 * 60;
-
 function SessionPage() {
   const { roomId } = Route.useParams();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState<any>(null);
@@ -29,19 +26,25 @@ function SessionPage() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
-  const [remaining, setRemaining] = useState(FOCUS);
+  const [remaining, setRemaining] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
+  const [micOn, setMicOn] = useState(false);
+  const [camOn, setCamOn] = useState(false);
   const completedRef = useRef(false);
+
+  const focusSec = (room?.focus_duration_minutes ?? 25) * 60;
+  const breakSec = (room?.break_duration_minutes ?? 5) * 60;
 
   // load + join
   useEffect(() => {
     (async () => {
       const { data: r } = await supabase.from("rooms").select("*,groups(name)").eq("id", roomId).maybeSingle();
       setRoom(r);
+      const initialFocus = ((r?.focus_duration_minutes ?? 25) as number) * 60;
       const { data: s } = await supabase.from("sessions").select("*").eq("room_id", roomId).order("started_at", { ascending: false }).limit(1).maybeSingle();
       if (s) setSession(s);
       else {
-        const { data: ns } = await supabase.from("sessions").insert({ room_id: roomId, phase: "focus", duration_seconds: FOCUS }).select().single();
+        const { data: ns } = await supabase.from("sessions").insert({ room_id: roomId, phase: "focus", duration_seconds: initialFocus }).select().single();
         setSession(ns);
       }
       if (user) {
@@ -61,7 +64,6 @@ function SessionPage() {
     setMessages((data as any) ?? []);
   };
 
-  // realtime
   useEffect(() => {
     const ch = supabase.channel(`room:${roomId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `room_id=eq.${roomId}` },
@@ -74,17 +76,13 @@ function SessionPage() {
     return () => { supabase.removeChannel(ch); };
   }, [roomId]);
 
-  // timer tick
   useEffect(() => {
     if (!session) return;
     const tick = () => {
       const started = new Date(session.started_at).getTime();
       const elapsed = Math.floor((Date.now() - started) / 1000);
       const left = session.duration_seconds - elapsed;
-      if (session.timer_state !== "running") {
-        setRemaining(prev => prev);
-        return;
-      }
+      if (session.timer_state !== "running") return;
       setRemaining(Math.max(0, left));
       if (left <= 0 && !completedRef.current && session.phase === "focus") {
         completedRef.current = true;
@@ -111,7 +109,12 @@ function SessionPage() {
   const skipPhase = async () => {
     if (!session) return;
     const newPhase = session.phase === "focus" ? "break" : "focus";
-    await supabase.from("sessions").update({ phase: newPhase, duration_seconds: newPhase === "focus" ? FOCUS : BREAK, started_at: new Date().toISOString(), timer_state: "running" }).eq("id", session.id);
+    await supabase.from("sessions").update({
+      phase: newPhase,
+      duration_seconds: newPhase === "focus" ? focusSec : breakSec,
+      started_at: new Date().toISOString(),
+      timer_state: "running",
+    }).eq("id", session.id);
     completedRef.current = false;
   };
   const abandon = async () => {
@@ -134,7 +137,7 @@ function SessionPage() {
   if (!room) return <div className="text-muted-foreground">Loading…</div>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <button onClick={() => navigate({ to: "/dashboard" })} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
@@ -147,6 +150,45 @@ function SessionPage() {
           <Badge className="bg-success text-success-foreground">● Live</Badge>
         </div>
       </div>
+
+      {/* Video grid */}
+      <Card className="p-5 border-[0.5px] bg-slate-900">
+        <div className="grid grid-cols-3 gap-3">
+          {participants.map(p => {
+            const isMe = p.user_id === user?.id;
+            const cam = isMe ? camOn : false;
+            const mic = isMe ? micOn : false;
+            return (
+              <div key={p.id} className="relative aspect-video bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
+                {!cam && (
+                  <div className="flex flex-col items-center gap-2">
+                    <Avatar name={p.profiles?.name ?? "?"} size={48} />
+                    <VideoOff className="h-5 w-5 text-slate-500" />
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                  <div className="bg-black/50 rounded p-1">
+                    {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
+                  </div>
+                  <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
+                    {p.profiles?.name ?? "?"}{isMe && " (you)"}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-center gap-2 mt-4">
+          <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
+            className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+            {micOn ? <><Mic className="h-4 w-4 mr-1" /> Mic on</> : <><MicOff className="h-4 w-4 mr-1" /> Mic off</>}
+          </Button>
+          <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
+            className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+            {camOn ? <><Video className="h-4 w-4 mr-1" /> Camera on</> : <><VideoOff className="h-4 w-4 mr-1" /> Camera off</>}
+          </Button>
+        </div>
+      </Card>
 
       <Card className="p-10 border-[0.5px] text-center">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">

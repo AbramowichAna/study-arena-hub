@@ -13,6 +13,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedMaterialsRouteImport } from './routes/_authenticated/materials'
 import { Route as AuthenticatedGroupsRouteImport } from './routes/_authenticated/groups'
@@ -37,6 +38,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
+  id: '/join/$inviteCode',
+  path: '/join/$inviteCode',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
 }
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
 }
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/_authenticated/materials': typeof AuthenticatedMaterialsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
 }
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/groups'
     | '/materials'
     | '/profile'
+    | '/join/$inviteCode'
     | '/groups/$groupId'
     | '/session/$roomId'
   fileRoutesByTo: FileRoutesByTo
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/groups'
     | '/materials'
     | '/profile'
+    | '/join/$inviteCode'
     | '/groups/$groupId'
     | '/session/$roomId'
   id:
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/_authenticated/groups'
     | '/_authenticated/materials'
     | '/_authenticated/profile'
+    | '/join/$inviteCode'
     | '/_authenticated/groups/$groupId'
     | '/_authenticated/session/$roomId'
   fileRoutesById: FileRoutesById
@@ -149,6 +161,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  JoinInviteCodeRoute: typeof JoinInviteCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$inviteCode': {
+      id: '/join/$inviteCode'
+      path: '/join/$inviteCode'
+      fullPath: '/join/$inviteCode'
+      preLoaderRoute: typeof JoinInviteCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/profile': {
@@ -262,17 +282,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  JoinInviteCodeRoute: JoinInviteCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

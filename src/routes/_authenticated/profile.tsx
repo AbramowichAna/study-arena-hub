@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Trophy, Flame, Clock, Calendar, Users, Pencil } from "lucide-react";
+import { Trophy, Clock, Calendar, Users, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,9 +69,6 @@ function ProfilePage() {
           <div className="flex gap-2">
             <div className="px-3 py-2 rounded-md bg-warning/10 text-warning text-sm font-medium flex items-center gap-2">
               <Trophy className="h-4 w-4" /> {profile.total_points} pts
-            </div>
-            <div className="px-3 py-2 rounded-md bg-destructive/10 text-destructive text-sm font-medium flex items-center gap-2">
-              <Flame className="h-4 w-4" /> {profile.streak_days} day streak
             </div>
           </div>
         </div>
