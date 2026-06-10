@@ -46,6 +46,41 @@ export type Database = {
           },
         ]
       }
+      group_invitations: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          invite_code: string
+          invited_email: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          invite_code: string
+          invited_email: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          invite_code?: string
+          invited_email?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_invitations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -195,7 +230,6 @@ export type Database = {
           email: string
           id: string
           name: string
-          streak_days: number
           total_points: number
         }
         Insert: {
@@ -204,7 +238,6 @@ export type Database = {
           email: string
           id: string
           name: string
-          streak_days?: number
           total_points?: number
         }
         Update: {
@@ -213,7 +246,6 @@ export type Database = {
           email?: string
           id?: string
           name?: string
-          streak_days?: number
           total_points?: number
         }
         Relationships: []
@@ -339,24 +371,30 @@ export type Database = {
       }
       rooms: {
         Row: {
+          break_duration_minutes: number
           created_at: string
           created_by: string
+          focus_duration_minutes: number
           group_id: string
           id: string
           name: string
           status: Database["public"]["Enums"]["room_status"]
         }
         Insert: {
+          break_duration_minutes?: number
           created_at?: string
           created_by: string
+          focus_duration_minutes?: number
           group_id: string
           id?: string
           name: string
           status?: Database["public"]["Enums"]["room_status"]
         }
         Update: {
+          break_duration_minutes?: number
           created_at?: string
           created_by?: string
+          focus_duration_minutes?: number
           group_id?: string
           id?: string
           name?: string
