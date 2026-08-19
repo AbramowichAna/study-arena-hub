@@ -40,7 +40,7 @@ function Dashboard() {
 
   const load = async () => {
     const [{ data: r }, { data: g }] = await Promise.all([
-      supabase.from("rooms").select("id,name,status,created_at,group_id,groups(name),room_participants(id)").order("created_at", { ascending: false }).limit(20),
+      supabase.from("rooms").select("id,name,status,created_at,group_id,groups(name),room_participants(id)").eq("status", "active").order("created_at", { ascending: false }).limit(20),
       supabase.from("group_members").select("groups(id,name)"),
     ]);
     setRooms((r as any) ?? []);
@@ -89,10 +89,9 @@ function Dashboard() {
         <p className="text-muted-foreground text-sm mt-1">¿Listo para una sesión de estudio?</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <StatCard icon={Timer} label="Sesiones esta semana" value={String(stats.weekSessions)} accent="text-primary bg-primary/10" />
         <StatCard icon={Clock} label="Tiempo de estudio hoy" value={`${stats.todayMinutes} min`} accent="text-success bg-success/10" progress={Math.min(100, (stats.todayMinutes / 120) * 100)} />
-        <StatCard icon={Users} label="Mis grupos" value={String(groups.length)} accent="text-warning bg-warning/10" />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -112,7 +111,7 @@ function Dashboard() {
                       <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label>Enfoque (min)</Label>
                       <Select value={focusMin} onValueChange={setFocusMin}>
@@ -126,6 +125,12 @@ function Dashboard() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>{BREAK_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Duración total</Label>
+                      <div className="px-3 py-2 bg-muted rounded-md text-sm text-center">
+                        {Math.ceil((Number(focusMin) + Number(breakMin)) * 3)} min
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -156,13 +161,6 @@ function Dashboard() {
                 </div>
               </Card>
             ))}
-            <Card className="p-4 border border-dashed flex items-center justify-center cursor-pointer hover:bg-muted/40 min-h-[120px]"
-              onClick={() => setOpen(true)}>
-              <div className="text-center text-muted-foreground text-sm">
-                <Plus className="h-5 w-5 mx-auto mb-1" />
-                Crear sala
-              </div>
-            </Card>
           </div>
         </div>
 
@@ -173,9 +171,14 @@ function Dashboard() {
               {groups.length === 0 && <p className="text-xs text-muted-foreground">Aún no te has unido a ningún grupo.</p>}
               {groups.map(g => (
                 <Link key={g.id} to="/groups/$groupId" params={{ groupId: g.id }}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  <span className="truncate">{g.name}</span>
+                  className="flex items-center justify-between px-2 py-1.5 rounded-md text-sm hover:bg-muted">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    <span className="truncate">{g.name}</span>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                    Administrar
+                  </Button>
                 </Link>
               ))}
               <Link to="/groups" className="text-xs text-primary hover:underline pt-2 block">Administrar grupos →</Link>

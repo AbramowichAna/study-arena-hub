@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, SkipForward, X, Send, ArrowLeft, Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { Pause, Play, SkipForward, X, Send, ArrowLeft, Mic, MicOff, Video, VideoOff, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,6 +200,7 @@ function SessionPage() {
             {session?.timer_state === "running" ? <><Pause className="h-4 w-4 mr-1" /> Pausar</> : <><Play className="h-4 w-4 mr-1" /> Reanudar</>}
           </Button>
           <Button variant="outline" onClick={skipPhase}><SkipForward className="h-4 w-4 mr-1" /> Saltar fase</Button>
+          <Button variant="default" onClick={complete} className="bg-green-600 hover:bg-green-700"><Check className="h-4 w-4 mr-1" /> Terminar sesión</Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="text-destructive"><X className="h-4 w-4 mr-1" /> Abandonar</Button>

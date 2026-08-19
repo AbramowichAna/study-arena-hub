@@ -55,12 +55,30 @@ function RegisterPage() {
     if (field === 'password') {
       if (!trimmedValue) {
         newErrors.password = "La contraseña es obligatoria";
-      } else if (trimmedValue.length < 8) {
-        newErrors.password = "La contraseña debe tener al menos 8 caracteres";
-      } else if (trimmedValue.length > 128) {
-        newErrors.password = "La contraseña no puede exceder 128 caracteres";
       } else {
         delete newErrors.password;
+        
+        // Validar debilidad de contraseña usando toast
+        if (trimmedValue.length < 8) {
+          toast.error("La contraseña debe tener al menos 8 caracteres");
+          return false;
+        }
+        if (trimmedValue.length > 128) {
+          toast.error("La contraseña no puede exceder 128 caracteres");
+          return false;
+        }
+        // Validar si es una contraseña débil
+        if (/^[0-9]+$/.test(trimmedValue)) {
+          toast.error("La contraseña no puede ser solo números");
+          return false;
+        }
+        if (trimmedValue.toLowerCase().includes('password') || 
+            trimmedValue.toLowerCase().includes('contraseña') ||
+            trimmedValue === '12345678' ||
+            trimmedValue === 'qwertyui') {
+          toast.error("La contraseña es demasiado común. Usa una más segura");
+          return false;
+        }
       }
     }
     
@@ -188,10 +206,7 @@ function RegisterPage() {
               minLength={8}
               maxLength={128}
               value={password} 
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (errors.password) validateField('password', e.target.value);
-              }}
+              onChange={(e) => setPassword(e.target.value)}
               className={errors.password ? "border-red-500" : ""}
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}

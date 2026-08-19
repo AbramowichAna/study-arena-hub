@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/groups")({
+export const Route = createFileRoute("/_authenticated/groups/")({
   component: GroupsPage,
 });
 

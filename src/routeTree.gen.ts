@@ -14,12 +14,12 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedGroupsRouteImport } from './routes/_authenticated/groups'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedMaterialsRouteImport } from './routes/_authenticated/materials'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
-import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups.$groupId'
+import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups/index'
+import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups/$groupId'
 import { Route as AuthenticatedSessionRoomIdRouteImport } from './routes/_authenticated/session.$roomId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -46,11 +46,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedGroupsRoute = AuthenticatedGroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -71,11 +66,17 @@ const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
   path: '/join/$inviteCode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedGroupsIndexRoute =
+  AuthenticatedGroupsIndexRouteImport.update({
+    id: '/groups/',
+    path: '/groups/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedGroupsGroupIdRoute =
   AuthenticatedGroupsGroupIdRouteImport.update({
-    id: '/$groupId',
-    path: '/$groupId',
-    getParentRoute: () => AuthenticatedGroupsRoute,
+    id: '/groups/$groupId',
+    path: '/groups/$groupId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSessionRoomIdRoute =
   AuthenticatedSessionRoomIdRouteImport.update({
@@ -89,26 +90,26 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/home': typeof AuthenticatedHomeRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
+  '/groups/': typeof AuthenticatedGroupsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/home': typeof AuthenticatedHomeRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
+  '/groups': typeof AuthenticatedGroupsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -117,13 +118,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/groups': typeof AuthenticatedGroupsRouteWithChildren
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/materials': typeof AuthenticatedMaterialsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
+  '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,26 +133,26 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard'
-    | '/groups'
     | '/home'
     | '/materials'
     | '/profile'
     | '/join/$inviteCode'
     | '/groups/$groupId'
     | '/session/$roomId'
+    | '/groups/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/register'
     | '/dashboard'
-    | '/groups'
     | '/home'
     | '/materials'
     | '/profile'
     | '/join/$inviteCode'
     | '/groups/$groupId'
     | '/session/$roomId'
+    | '/groups'
   id:
     | '__root__'
     | '/'
@@ -159,13 +160,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/_authenticated/dashboard'
-    | '/_authenticated/groups'
     | '/_authenticated/home'
     | '/_authenticated/materials'
     | '/_authenticated/profile'
     | '/join/$inviteCode'
     | '/_authenticated/groups/$groupId'
     | '/_authenticated/session/$roomId'
+    | '/_authenticated/groups/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -213,13 +214,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/groups': {
-      id: '/_authenticated/groups'
-      path: '/groups'
-      fullPath: '/groups'
-      preLoaderRoute: typeof AuthenticatedGroupsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/home': {
       id: '/_authenticated/home'
       path: '/home'
@@ -248,12 +242,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinInviteCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/groups/': {
+      id: '/_authenticated/groups/'
+      path: '/groups'
+      fullPath: '/groups/'
+      preLoaderRoute: typeof AuthenticatedGroupsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/groups/$groupId': {
       id: '/_authenticated/groups/$groupId'
-      path: '/$groupId'
+      path: '/groups/$groupId'
       fullPath: '/groups/$groupId'
       preLoaderRoute: typeof AuthenticatedGroupsGroupIdRouteImport
-      parentRoute: typeof AuthenticatedGroupsRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/session/$roomId': {
       id: '/_authenticated/session/$roomId'
@@ -265,33 +266,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AuthenticatedGroupsRouteChildren {
-  AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
-}
-
-const AuthenticatedGroupsRouteChildren: AuthenticatedGroupsRouteChildren = {
-  AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
-}
-
-const AuthenticatedGroupsRouteWithChildren =
-  AuthenticatedGroupsRoute._addFileChildren(AuthenticatedGroupsRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedGroupsRoute: typeof AuthenticatedGroupsRouteWithChildren
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedMaterialsRoute: typeof AuthenticatedMaterialsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
   AuthenticatedSessionRoomIdRoute: typeof AuthenticatedSessionRoomIdRoute
+  AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedGroupsRoute: AuthenticatedGroupsRouteWithChildren,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedMaterialsRoute: AuthenticatedMaterialsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
   AuthenticatedSessionRoomIdRoute: AuthenticatedSessionRoomIdRoute,
+  AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

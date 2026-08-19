@@ -28,6 +28,12 @@ type Material = {
 
 type Group = { id: string; name: string };
 
+const SUBJECT_TAGS = [
+  "Matemáticas", "Física", "Química", "Biología", "Historia", "Literatura", 
+  "Inglés", "Programación", "Derecho", "Medicina", "Psicología", "Filosofía",
+  "Economía", "Contabilidad", "Marketing", "Estadística", "Otro"
+];
+
 function MaterialsPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState("all");
@@ -185,7 +191,15 @@ function UploadFileDialog({ open, onClose, groups, userId }:
         <div className="space-y-3 py-2">
           <div className="space-y-1.5"><Label>File</Label><Input type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} /></div>
           <div className="space-y-1.5"><Label>Name (optional)</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder={file?.name ?? ""} /></div>
-          <div className="space-y-1.5"><Label>Subject</Label><Input value={subject} onChange={e => setSubject(e.target.value)} /></div>
+          <div className="space-y-1.5">
+            <Label>Materia/Tag</Label>
+            <Select value={subject} onValueChange={setSubject}>
+              <SelectTrigger><SelectValue placeholder="Selecciona una materia" /></SelectTrigger>
+              <SelectContent>
+                {SUBJECT_TAGS.map(tag => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1.5">
             <Label>Share with group</Label>
             <Select value={groupId} onValueChange={setGroupId}>
@@ -236,7 +250,15 @@ function FlashcardsDialog({ open, onClose, groups, userId }:
         <div className="space-y-3 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Subject</Label><Input value={subject} onChange={e => setSubject(e.target.value)} /></div>
+            <div className="space-y-1.5">
+            <Label>Materia/Tag</Label>
+            <Select value={subject} onValueChange={setSubject}>
+              <SelectTrigger><SelectValue placeholder="Selecciona una materia" /></SelectTrigger>
+              <SelectContent>
+                {SUBJECT_TAGS.map(tag => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           </div>
           <div className="space-y-1.5">
             <Label>Group (optional)</Label>
@@ -302,7 +324,15 @@ function QuizDialog({ open, onClose, groups, userId }:
         <div className="space-y-3 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Subject</Label><Input value={subject} onChange={e => setSubject(e.target.value)} /></div>
+            <div className="space-y-1.5">
+            <Label>Materia/Tag</Label>
+            <Select value={subject} onValueChange={setSubject}>
+              <SelectTrigger><SelectValue placeholder="Selecciona una materia" /></SelectTrigger>
+              <SelectContent>
+                {SUBJECT_TAGS.map(tag => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           </div>
           <div className="space-y-1.5">
             <Label>Group (optional)</Label>
