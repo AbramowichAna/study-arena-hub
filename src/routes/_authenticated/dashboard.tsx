@@ -70,58 +70,58 @@ function Dashboard() {
       .select().single();
     if (error) return toast.error(error.message);
     await supabase.from("room_participants").insert({ room_id: data.id, user_id: user.id });
-    toast.success("Room created");
+    toast.success("Sala creada");
     setOpen(false); setNewName(""); setNewGroup(""); setFocusMin("25"); setBreakMin("5");
     load();
   };
 
   const greet = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return "Buenos días";
+    if (h < 18) return "Buenas tardes";
+    return "Buenas noches";
   })();
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
         <h1 className="text-2xl font-semibold">{greet}, {profile?.name?.split(" ")[0] ?? "there"}</h1>
-        <p className="text-muted-foreground text-sm mt-1">Ready for a focus session?</p>
+        <p className="text-muted-foreground text-sm mt-1">¿Listo para una sesión de estudio?</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard icon={Timer} label="Sessions this week" value={String(stats.weekSessions)} accent="text-primary bg-primary/10" />
-        <StatCard icon={Clock} label="Study time today" value={`${stats.todayMinutes} min`} accent="text-success bg-success/10" progress={Math.min(100, (stats.todayMinutes / 120) * 100)} />
-        <StatCard icon={Users} label="My groups" value={String(groups.length)} accent="text-warning bg-warning/10" />
+        <StatCard icon={Timer} label="Sesiones esta semana" value={String(stats.weekSessions)} accent="text-primary bg-primary/10" />
+        <StatCard icon={Clock} label="Tiempo de estudio hoy" value={`${stats.todayMinutes} min`} accent="text-success bg-success/10" progress={Math.min(100, (stats.todayMinutes / 120) * 100)} />
+        <StatCard icon={Users} label="Mis grupos" value={String(groups.length)} accent="text-warning bg-warning/10" />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Active Rooms</h2>
+            <h2 className="text-lg font-semibold">Salas Activas</h2>
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" /> New room</Button></DialogTrigger>
+              <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" /> Nueva sala</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Create study room</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Crear sala de estudio</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-2">
-                  <div className="space-y-2"><Label>Room name</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Calculus Cram" /></div>
+                  <div className="space-y-2"><Label>Nombre de la sala</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Estudio de Cálculo" /></div>
                   <div className="space-y-2">
-                    <Label>Group</Label>
+                    <Label>Grupo</Label>
                     <Select value={newGroup} onValueChange={setNewGroup}>
-                      <SelectTrigger><SelectValue placeholder={groups.length ? "Choose group" : "Create a group first"} /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={groups.length ? "Elegir grupo" : "Crea un grupo primero"} /></SelectTrigger>
                       <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Focus (min)</Label>
+                      <Label>Enfoque (min)</Label>
                       <Select value={focusMin} onValueChange={setFocusMin}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>{FOCUS_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Break (min)</Label>
+                      <Label>Descanso (min)</Label>
                       <Select value={breakMin} onValueChange={setBreakMin}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>{BREAK_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
@@ -129,7 +129,7 @@ function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <DialogFooter><Button onClick={createRoom} disabled={!newName || !newGroup}>Create & start</Button></DialogFooter>
+                <DialogFooter><Button onClick={createRoom} disabled={!newName || !newGroup}>Crear e iniciar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -143,7 +143,7 @@ function Dashboard() {
                     <div className="text-xs text-muted-foreground">{r.groups?.name}</div>
                   </div>
                   <Badge variant={r.status === "active" ? "default" : "secondary"} className={r.status === "active" ? "bg-success text-success-foreground" : ""}>
-                    {r.status === "active" ? "● Live" : r.status}
+                    {r.status === "active" ? "● En vivo" : r.status}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between mt-3">
@@ -151,7 +151,7 @@ function Dashboard() {
                     <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
                   </div>
                   <Link to="/session/$roomId" params={{ roomId: r.id }}>
-                    <Button size="sm" variant="outline">Join</Button>
+                    <Button size="sm" variant="outline">Unirse</Button>
                   </Link>
                 </div>
               </Card>
@@ -160,7 +160,7 @@ function Dashboard() {
               onClick={() => setOpen(true)}>
               <div className="text-center text-muted-foreground text-sm">
                 <Plus className="h-5 w-5 mx-auto mb-1" />
-                Create room
+                Crear sala
               </div>
             </Card>
           </div>
@@ -168,9 +168,9 @@ function Dashboard() {
 
         <div className="space-y-4">
           <Card className="p-4 border-[0.5px]">
-            <h3 className="font-semibold text-sm mb-3">Your groups</h3>
+            <h3 className="font-semibold text-sm mb-3">Tus grupos</h3>
             <div className="space-y-2">
-              {groups.length === 0 && <p className="text-xs text-muted-foreground">You haven't joined any groups yet.</p>}
+              {groups.length === 0 && <p className="text-xs text-muted-foreground">Aún no te has unido a ningún grupo.</p>}
               {groups.map(g => (
                 <Link key={g.id} to="/groups/$groupId" params={{ groupId: g.id }}
                   className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted">
@@ -178,7 +178,7 @@ function Dashboard() {
                   <span className="truncate">{g.name}</span>
                 </Link>
               ))}
-              <Link to="/groups" className="text-xs text-primary hover:underline pt-2 block">Manage groups →</Link>
+              <Link to="/groups" className="text-xs text-primary hover:underline pt-2 block">Administrar grupos →</Link>
             </div>
           </Card>
         </div>

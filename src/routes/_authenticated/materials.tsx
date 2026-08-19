@@ -62,31 +62,31 @@ function MaterialsPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Study Materials</h1>
-          <p className="text-sm text-muted-foreground mt-1">Flashcards, quizzes, and files</p>
+          <h1 className="text-2xl font-semibold">Materiales de Estudio</h1>
+          <p className="text-sm text-muted-foreground mt-1">Tarjetas, cuestionarios y archivos</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4 mr-1" /> Upload file</Button>
-          <Button variant="outline" onClick={() => setFlashOpen(true)}><BookOpen className="h-4 w-4 mr-1" /> Flashcards</Button>
-          <Button onClick={() => setQuizOpen(true)}><Brain className="h-4 w-4 mr-1" /> Quiz</Button>
+          <Button variant="outline" onClick={() => setUploadOpen(true)}><Upload className="h-4 w-4 mr-1" /> Subir archivo</Button>
+          <Button variant="outline" onClick={() => setFlashOpen(true)}><BookOpen className="h-4 w-4 mr-1" /> Tarjetas</Button>
+          <Button onClick={() => setQuizOpen(true)}><Brain className="h-4 w-4 mr-1" /> Cuestionario</Button>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
-          <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="all">Todos</TabsTrigger>
+          <TabsTrigger value="flashcards">Tarjetas</TabsTrigger>
+          <TabsTrigger value="quizzes">Cuestionarios</TabsTrigger>
+          <TabsTrigger value="files">Archivos</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {filtered.length === 0 ? (
         <Card className="p-12 text-center border-[0.5px]">
           <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <h3 className="font-medium mb-1">No materials yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">Upload files, create flashcards, or build quizzes for your groups.</p>
-          <Button onClick={() => setFlashOpen(true)}><Plus className="h-4 w-4 mr-1" /> Create flashcards</Button>
+          <h3 className="font-medium mb-1">Aún no hay materiales</h3>
+          <p className="text-sm text-muted-foreground mb-4">Sube archivos, crea tarjetas o construye cuestionarios para tus grupos.</p>
+          <Button onClick={() => setFlashOpen(true)}><Plus className="h-4 w-4 mr-1" /> Crear tarjetas</Button>
         </Card>
       ) : (
         <div className="grid grid-cols-3 gap-4">
@@ -109,18 +109,18 @@ function MaterialsPage() {
               <div className="mt-4 flex gap-2">
                 {m.type === "file" && (
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => openFile(m.file_url)}>
-                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> View
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver
                   </Button>
                 )}
                 {m.type === "flashcard_set" && (
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => setPractice(m)}>
-                    <Play className="h-3.5 w-3.5 mr-1" /> Practice
+                    <Play className="h-3.5 w-3.5 mr-1" /> Practicar
                   </Button>
                 )}
                 {m.type === "quiz" && (
                   <>
                     <Button size="sm" className="flex-1" onClick={() => setPlay(m)}>
-                      <Play className="h-3.5 w-3.5 mr-1" /> Play
+                      <Play className="h-3.5 w-3.5 mr-1" /> Jugar
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setLeaderboardFor(m)}>
                       <Trophy className="h-3.5 w-3.5" />

@@ -41,17 +41,17 @@ function GroupsPage() {
     if (!name || !user) return;
     const { error } = await supabase.from("groups").insert({ name, admin_id: user.id });
     if (error) return toast.error(error.message);
-    toast.success("Group created");
+    toast.success("Grupo creado");
     setOpen(false); setName(""); load();
   };
 
   const join = async () => {
     if (!joinCode || !user) return;
     const { data: g, error } = await supabase.from("groups").select("id").eq("invite_code", joinCode.trim()).maybeSingle();
-    if (error || !g) return toast.error("Invalid invite code");
+    if (error || !g) return toast.error("Código de invitación inválido");
     const { error: e2 } = await supabase.from("group_members").insert({ group_id: g.id, user_id: user.id });
     if (e2) return toast.error(e2.message);
-    toast.success("Joined group");
+    toast.success("Te has unido al grupo");
     setJoinCode(""); load();
   };
 
@@ -59,20 +59,20 @@ function GroupsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Groups</h1>
-          <p className="text-sm text-muted-foreground mt-1">Study with your classmates</p>
+          <h1 className="text-2xl font-semibold">Grupos</h1>
+          <p className="text-sm text-muted-foreground mt-1">Estudia con tus compañeros</p>
         </div>
         <div className="flex gap-2">
           <div className="flex items-center gap-2">
-            <Input placeholder="Invite code" value={joinCode} onChange={e => setJoinCode(e.target.value)} className="w-40" />
-            <Button variant="outline" onClick={join}>Join</Button>
+            <Input placeholder="Código de invitación" value={joinCode} onChange={e => setJoinCode(e.target.value)} className="w-40" />
+            <Button variant="outline" onClick={join}>Unirse</Button>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> Create</Button></DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> Crear</Button></DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Create group</DialogTitle></DialogHeader>
-              <div className="space-y-2 py-2"><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
-              <DialogFooter><Button onClick={create}>Create</Button></DialogFooter>
+              <DialogHeader><DialogTitle>Crear grupo</DialogTitle></DialogHeader>
+              <div className="space-y-2 py-2"><Label>Nombre</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
+              <DialogFooter><Button onClick={create}>Crear</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
@@ -81,9 +81,9 @@ function GroupsPage() {
       {groups.length === 0 ? (
         <Card className="p-12 text-center border-[0.5px]">
           <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-          <h3 className="font-medium mb-1">No groups yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">Create one or join with an invite code.</p>
-          <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Create group</Button>
+          <h3 className="font-medium mb-1">Aún no hay grupos</h3>
+          <p className="text-sm text-muted-foreground mb-4">Crea uno o únete con un código de invitación.</p>
+          <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Crear grupo</Button>
         </Card>
       ) : (
         <div className="grid grid-cols-3 gap-4">
@@ -91,10 +91,10 @@ function GroupsPage() {
             <Card key={g.id} className="p-5 border-[0.5px]">
               <div className="font-medium">{g.name}</div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <Users className="h-3 w-3" /> {g.members} member{g.members === 1 ? "" : "s"}
+                <Users className="h-3 w-3" /> {g.members} miembro{g.members === 1 ? "" : "s"}
               </div>
               <Link to="/groups/$groupId" params={{ groupId: g.id }}>
-                <Button variant="outline" size="sm" className="mt-4 w-full">Manage</Button>
+                <Button variant="outline" size="sm" className="mt-4 w-full">Administrar</Button>
               </Link>
             </Card>
           ))}

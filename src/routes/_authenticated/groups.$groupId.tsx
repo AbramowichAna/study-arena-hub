@@ -66,7 +66,7 @@ function GroupDetail() {
   };
   useEffect(() => { load(); }, [groupId]);
 
-  if (!group) return <div className="text-muted-foreground">Loading…</div>;
+  if (!group) return <div className="text-muted-foreground">Cargando…</div>;
 
   const isAdmin = group.admin_id === user?.id;
   const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/join/${group.invite_code}` : "";
@@ -75,13 +75,13 @@ function GroupDetail() {
     if (!user) return;
     const { error } = await supabase.from("group_members").delete().match({ group_id: groupId, user_id: user.id });
     if (error) return toast.error(error.message);
-    toast.success("Left group");
+    toast.success("Has salido del grupo");
     navigate({ to: "/groups" });
   };
   const remove = async (id: string) => {
     const { error } = await supabase.from("group_members").delete().eq("id", id);
     if (error) return toast.error(error.message);
-    toast.success("Removed");
+    toast.success("Eliminado");
     load();
   };
 
@@ -92,7 +92,7 @@ function GroupDetail() {
       group_id: groupId, invited_email: email, invite_code: group.invite_code, status: "pending",
     });
     if (error) return toast.error(error.message);
-    toast.success("Invitation sent");
+    toast.success("Invitación enviada");
     setInviteEmail("");
     load();
   };
@@ -102,16 +102,16 @@ function GroupDetail() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <button onClick={() => navigate({ to: "/groups" })} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back
+        <ArrowLeft className="h-3.5 w-3.5" /> Volver
       </button>
       <div>
         <h1 className="text-2xl font-semibold">{group.name}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{members.length} members</p>
+        <p className="text-sm text-muted-foreground mt-1">{members.length} miembros</p>
       </div>
 
       {/* Weekly Ranking */}
       <Card className="p-5 border-[0.5px]">
-        <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Weekly Ranking</h3>
+        <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Ranking Semanal</h3>
         <div className="space-y-3">
           {ranking.map((r, i) => (
             <div key={r.user_id} className="flex items-center gap-3">
@@ -132,23 +132,23 @@ function GroupDetail() {
       {isAdmin && (
         <Card className="p-5 border-[0.5px] space-y-4">
           <div>
-            <div className="text-sm font-medium mb-2 flex items-center gap-2"><Link2 className="h-4 w-4" /> Invite link</div>
+            <div className="text-sm font-medium mb-2 flex items-center gap-2"><Link2 className="h-4 w-4" /> Enlace de invitación</div>
             <div className="flex gap-2">
               <Input readOnly value={inviteLink} className="font-mono text-xs" />
-              <Button variant="outline" onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success("Copied"); }}>
+              <Button variant="outline" onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success("Copiado"); }}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
           </div>
           <div>
-            <div className="text-sm font-medium mb-2 flex items-center gap-2"><Mail className="h-4 w-4" /> Invite by email</div>
+            <div className="text-sm font-medium mb-2 flex items-center gap-2"><Mail className="h-4 w-4" /> Invitar por correo</div>
             <div className="flex gap-2">
-              <Input placeholder="user@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" />
-              <Button onClick={sendInvite}>Send invite</Button>
+              <Input placeholder="usuario@ejemplo.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" />
+              <Button onClick={sendInvite}>Enviar invitación</Button>
             </div>
             {invites.length > 0 && (
               <div className="mt-3 space-y-1">
-                <div className="text-xs text-muted-foreground">Pending: {invites.map((i: any) => i.invited_email).join(", ")}</div>
+                <div className="text-xs text-muted-foreground">Pendientes: {invites.map((i: any) => i.invited_email).join(", ")}</div>
               </div>
             )}
           </div>
@@ -156,7 +156,7 @@ function GroupDetail() {
       )}
 
       <Card className="p-5 border-[0.5px]">
-        <div className="text-sm font-medium mb-3">Members</div>
+        <div className="text-sm font-medium mb-3">Miembros</div>
         <div className="space-y-2">
           {members.map(m => (
             <div key={m.id} className="flex items-center gap-3 py-2 border-b last:border-0">
@@ -173,12 +173,12 @@ function GroupDetail() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Remove member?</AlertDialogTitle>
-                      <AlertDialogDescription>{m.profiles?.name} will lose access to this group.</AlertDialogDescription>
+                      <AlertDialogTitle>¿Eliminar miembro?</AlertDialogTitle>
+                      <AlertDialogDescription>{m.profiles?.name} perderá el acceso a este grupo.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => remove(m.id)} className="bg-destructive">Remove</AlertDialogAction>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => remove(m.id)} className="bg-destructive">Eliminar</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -191,16 +191,16 @@ function GroupDetail() {
       {!isAdmin && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="text-destructive">Leave group</Button>
+            <Button variant="outline" className="text-destructive">Salir del grupo</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Leave this group?</AlertDialogTitle>
-              <AlertDialogDescription>You'll lose access to its rooms and materials.</AlertDialogDescription>
+              <AlertDialogTitle>¿Salir de este grupo?</AlertDialogTitle>
+              <AlertDialogDescription>Perderás acceso a sus salas y materiales.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Stay</AlertDialogCancel>
-              <AlertDialogAction onClick={leave} className="bg-destructive">Leave</AlertDialogAction>
+              <AlertDialogCancel>Quedarse</AlertDialogCancel>
+              <AlertDialogAction onClick={leave} className="bg-destructive">Salir</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

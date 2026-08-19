@@ -26,7 +26,7 @@ function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Welcome back!");
+    toast.success("¡Bienvenido de vuelta!");
     navigate({ to: "/dashboard", replace: true });
   };
 
@@ -39,7 +39,7 @@ function LoginPage() {
           </div>
           <div>
             <div className="font-semibold text-lg">Study Arena</div>
-            <div className="text-xs text-muted-foreground">Sign in to your account</div>
+            <div className="text-xs text-muted-foreground">Inicia sesión en tu cuenta</div>
           </div>
         </div>
         <form onSubmit={submit} className="space-y-4">
@@ -48,16 +48,16 @@ function LoginPage() {
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Contraseña</Label>
             <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Iniciando sesión…" : "Iniciar sesión"}
           </Button>
         </form>
         <p className="mt-6 text-sm text-center text-muted-foreground">
-          No account?{" "}
-          <Link to="/register" className="text-primary font-medium hover:underline">Create one</Link>
+          ¿No tienes cuenta?{" "}
+          <Link to="/register" className="text-primary font-medium hover:underline">Crear una</Link>
         </p>
       </Card>
     </div>

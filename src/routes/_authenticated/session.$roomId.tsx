@@ -121,7 +121,7 @@ function SessionPage() {
     if (!user) return;
     await supabase.from("point_events").insert({ user_id: user.id, type: "abandon_penalty", points: -20 });
     await supabase.from("room_participants").update({ left_at: new Date().toISOString() }).match({ room_id: roomId, user_id: user.id });
-    toast.error("Session abandoned: -20 pts");
+    toast.error("Sesión abandonada: -20 pts");
     navigate({ to: "/dashboard" });
   };
 
@@ -134,20 +134,20 @@ function SessionPage() {
   const mins = Math.floor(remaining / 60).toString().padStart(2, "0");
   const secs = (remaining % 60).toString().padStart(2, "0");
 
-  if (!room) return <div className="text-muted-foreground">Loading…</div>;
+  if (!room) return <div className="text-muted-foreground">Cargando…</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <button onClick={() => navigate({ to: "/dashboard" })} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <ArrowLeft className="h-3.5 w-3.5" /> Dashboard
+          <ArrowLeft className="h-3.5 w-3.5" /> Panel
         </button>
         <div className="flex items-center gap-3">
           <div>
             <div className="font-semibold">{room.name}</div>
             <div className="text-xs text-muted-foreground">{room.groups?.name}</div>
           </div>
-          <Badge className="bg-success text-success-foreground">● Live</Badge>
+          <Badge className="bg-success text-success-foreground">● En Vivo</Badge>
         </div>
       </div>
 
@@ -171,7 +171,7 @@ function SessionPage() {
                     {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
                   </div>
                   <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
-                    {p.profiles?.name ?? "?"}{isMe && " (you)"}
+                    {p.profiles?.name ?? "?"}{isMe && " (tú)"}
                   </div>
                 </div>
               </div>
@@ -181,37 +181,37 @@ function SessionPage() {
         <div className="flex justify-center gap-2 mt-4">
           <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
             className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-            {micOn ? <><Mic className="h-4 w-4 mr-1" /> Mic on</> : <><MicOff className="h-4 w-4 mr-1" /> Mic off</>}
+            {micOn ? <><Mic className="h-4 w-4 mr-1" /> Micrófono encendido</> : <><MicOff className="h-4 w-4 mr-1" /> Micrófono apagado</>}
           </Button>
           <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
             className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-            {camOn ? <><Video className="h-4 w-4 mr-1" /> Camera on</> : <><VideoOff className="h-4 w-4 mr-1" /> Camera off</>}
+            {camOn ? <><Video className="h-4 w-4 mr-1" /> Cámara encendida</> : <><VideoOff className="h-4 w-4 mr-1" /> Cámara apagada</>}
           </Button>
         </div>
       </Card>
 
       <Card className="p-10 border-[0.5px] text-center">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-          {session?.phase === "focus" ? "Focus" : "Break"}
+          {session?.phase === "focus" ? "Concentración" : "Descanso"}
         </div>
         <div className="text-7xl font-semibold tabular-nums">{mins}:{secs}</div>
         <div className="flex justify-center gap-2 mt-6">
           <Button variant="outline" onClick={togglePause}>
-            {session?.timer_state === "running" ? <><Pause className="h-4 w-4 mr-1" /> Pause</> : <><Play className="h-4 w-4 mr-1" /> Resume</>}
+            {session?.timer_state === "running" ? <><Pause className="h-4 w-4 mr-1" /> Pausar</> : <><Play className="h-4 w-4 mr-1" /> Reanudar</>}
           </Button>
-          <Button variant="outline" onClick={skipPhase}><SkipForward className="h-4 w-4 mr-1" /> Skip phase</Button>
+          <Button variant="outline" onClick={skipPhase}><SkipForward className="h-4 w-4 mr-1" /> Saltar fase</Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" className="text-destructive"><X className="h-4 w-4 mr-1" /> Abandon</Button>
+              <Button variant="outline" className="text-destructive"><X className="h-4 w-4 mr-1" /> Abandonar</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Abandon session?</AlertDialogTitle>
-                <AlertDialogDescription>You'll lose 20 points and leave the room.</AlertDialogDescription>
+                <AlertDialogTitle>¿Abandonar sesión?</AlertDialogTitle>
+                <AlertDialogDescription>Perderás 20 puntos y saldrás de la sala.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Stay</AlertDialogCancel>
-                <AlertDialogAction onClick={abandon} className="bg-destructive">Abandon</AlertDialogAction>
+                <AlertDialogCancel>Quedarse</AlertDialogCancel>
+                <AlertDialogAction onClick={abandon} className="bg-destructive">Abandonar</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -220,7 +220,7 @@ function SessionPage() {
 
       <div className="grid grid-cols-2 gap-4">
         <Card className="p-5 border-[0.5px]">
-          <h3 className="font-semibold text-sm mb-3">Participants ({participants.length})</h3>
+          <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
           <div className="space-y-2">
             {participants.map(p => (
               <div key={p.id} className="flex items-center gap-3">
@@ -243,7 +243,7 @@ function SessionPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Message…" />
+            <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Mensaje…" />
             <Button size="icon" onClick={send}><Send className="h-4 w-4" /></Button>
           </div>
         </Card>
@@ -252,9 +252,9 @@ function SessionPage() {
       <Dialog open={celebrate} onOpenChange={setCelebrate}>
         <DialogContent className="text-center py-10">
           <div className="text-5xl mb-2">🎉</div>
-          <div className="text-2xl font-semibold">Session complete!</div>
-          <div className="text-muted-foreground my-2">You earned +100 pts</div>
-          <Button onClick={() => navigate({ to: "/dashboard" })}>Back to dashboard</Button>
+          <div className="text-2xl font-semibold">¡Sesión completada!</div>
+          <div className="text-muted-foreground my-2">Has ganado +100 pts</div>
+          <Button onClick={() => navigate({ to: "/dashboard" })}>Volver al panel</Button>
         </DialogContent>
       </Dialog>
     </div>

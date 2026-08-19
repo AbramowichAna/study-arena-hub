@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 type Group = { id: string; name: string };
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: Home },
-  { to: "/materials", label: "Materials", icon: BookOpen },
-  { to: "/profile", label: "Profile", icon: User },
+  { to: "/dashboard", label: "Tablero", icon: Home },
+  { to: "/materials", label: "Materiales", icon: BookOpen },
+  { to: "/profile", label: "Perfil", icon: User },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -62,12 +62,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="px-5 mt-4">
           <div className="text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
-            My Groups
+            Mis Grupos
           </div>
           <div className="space-y-1">
             {groups.length === 0 && (
               <Link to="/groups" className="text-xs text-muted-foreground hover:text-primary">
-                + Create a group
+                + Crear un grupo
               </Link>
             )}
             {groups.map((g, i) => (
@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
             {groups.length > 0 && (
               <Link to="/groups" className="text-xs text-muted-foreground hover:text-primary px-2 pt-1 block">
-                Manage groups →
+                Administrar grupos →
               </Link>
             )}
           </div>
@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-auto p-3 border-t border-sidebar-border">
           <button onClick={signOut}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent">
-            <LogOut className="h-4 w-4" /> Sign out
+            <LogOut className="h-4 w-4" /> Cerrar sesión
           </button>
         </div>
       </aside>

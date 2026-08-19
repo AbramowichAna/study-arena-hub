@@ -16,9 +16,9 @@ export const Route = createFileRoute("/_authenticated/profile")({
 });
 
 const GOAL_LABELS: Record<string, string> = {
-  daily_hours: "Daily study hours",
-  weekly_sessions: "Weekly sessions",
-  weekly_quizzes: "Weekly quizzes",
+  daily_hours: "Horas de estudio diarias",
+  weekly_sessions: "Sesiones semanales",
+  weekly_quizzes: "Exámenes semanales",
 };
 
 function ProfilePage() {
@@ -48,7 +48,7 @@ function ProfilePage() {
     if (!user) return;
     const rows = Object.entries(goals).map(([type, target]) => ({ user_id: user.id, type: type as any, target }));
     await supabase.from("user_goals").upsert(rows, { onConflict: "user_id,type" });
-    toast.success("Goals saved");
+    toast.success("Metas guardadas");
     setEditing(false);
   };
 
@@ -63,7 +63,7 @@ function ProfilePage() {
             <h1 className="text-2xl font-semibold">{profile.name}</h1>
             <div className="text-sm text-muted-foreground">{profile.email}</div>
             <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Joined {format(new Date(), "MMM yyyy")}
+              <Calendar className="h-3 w-3" /> Se unió en {format(new Date(), "MMM yyyy")}
             </div>
           </div>
           <div className="flex gap-2">
@@ -75,18 +75,18 @@ function ProfilePage() {
       </Card>
 
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard icon={Clock} label="Hours this week" value={(progress.weekly_sessions * 25 / 60).toFixed(1)} />
-        <MetricCard icon={Trophy} label="Daily average" value={(progress.daily_hours).toFixed(1) + "h"} />
-        <MetricCard icon={Users} label="Group sessions" value={String(progress.weekly_sessions)} />
+        <MetricCard icon={Clock} label="Horas esta semana" value={(progress.weekly_sessions * 25 / 60).toFixed(1)} />
+        <MetricCard icon={Trophy} label="Promedio diario" value={(progress.daily_hours).toFixed(1) + "h"} />
+        <MetricCard icon={Users} label="Sesiones grupales" value={String(progress.weekly_sessions)} />
       </div>
 
       <Card className="p-6 border-[0.5px]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">Personal goals</h2>
+          <h2 className="font-semibold">Metas personales</h2>
           {editing ? (
-            <Button size="sm" onClick={save}>Save</Button>
+            <Button size="sm" onClick={save}>Guardar</Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5 mr-1" /> Editar</Button>
           )}
         </div>
         <div className="space-y-4">
