@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build && cp dist/index.html dist/client/index.html",
+  "outputDirectory": "dist/client",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
