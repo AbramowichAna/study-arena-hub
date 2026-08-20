@@ -55,30 +55,19 @@ function RegisterPage() {
     if (field === 'password') {
       if (!trimmedValue) {
         newErrors.password = "La contraseña es obligatoria";
+      } else if (trimmedValue.length < 8) {
+        newErrors.password = "La contraseña debe tener al menos 8 caracteres";
+      } else if (trimmedValue.length > 128) {
+        newErrors.password = "La contraseña no puede exceder 128 caracteres";
+      } else if (/^[0-9]+$/.test(trimmedValue)) {
+        newErrors.password = "La contraseña no puede ser solo números";
+      } else if (trimmedValue.toLowerCase().includes('password') || 
+                trimmedValue.toLowerCase().includes('contraseña') ||
+                trimmedValue === '12345678' ||
+                trimmedValue === 'qwertyui') {
+        newErrors.password = "La contraseña es demasiado común. Usa una más segura";
       } else {
         delete newErrors.password;
-        
-        // Validar debilidad de contraseña usando toast
-        if (trimmedValue.length < 8) {
-          toast.error("La contraseña debe tener al menos 8 caracteres");
-          return false;
-        }
-        if (trimmedValue.length > 128) {
-          toast.error("La contraseña no puede exceder 128 caracteres");
-          return false;
-        }
-        // Validar si es una contraseña débil
-        if (/^[0-9]+$/.test(trimmedValue)) {
-          toast.error("La contraseña no puede ser solo números");
-          return false;
-        }
-        if (trimmedValue.toLowerCase().includes('password') || 
-            trimmedValue.toLowerCase().includes('contraseña') ||
-            trimmedValue === '12345678' ||
-            trimmedValue === 'qwertyui') {
-          toast.error("La contraseña es demasiado común. Usa una más segura");
-          return false;
-        }
       }
     }
     
@@ -191,7 +180,14 @@ function RegisterPage() {
               value={email} 
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (errors.email) validateField('email', e.target.value);
+                // Validar email en tiempo real si hay contenido
+                if (e.target.value.length > 0) {
+                  validateField('email', e.target.value);
+                } else if (errors.email) {
+                  const newErrors = { ...errors };
+                  delete newErrors.email;
+                  setErrors(newErrors);
+                }
               }}
               className={errors.email ? "border-red-500" : ""}
             />
@@ -206,7 +202,18 @@ function RegisterPage() {
               minLength={8}
               maxLength={128}
               value={password} 
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                // Validar en tiempo real cuando hay contenido
+                if (e.target.value.length > 0) {
+                  validateField('password', e.target.value);
+                } else if (errors.password) {
+                  // Limpiar error si está vacío
+                  const newErrors = { ...errors };
+                  delete newErrors.password;
+                  setErrors(newErrors);
+                }
+              }}
               className={errors.password ? "border-red-500" : ""}
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}

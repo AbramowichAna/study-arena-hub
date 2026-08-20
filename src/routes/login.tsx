@@ -129,7 +129,14 @@ function LoginPage() {
               value={email} 
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (errors.email) validateField('email', e.target.value);
+                // Validar email en tiempo real si hay contenido
+                if (e.target.value.length > 0) {
+                  validateField('email', e.target.value);
+                } else if (errors.email) {
+                  const newErrors = { ...errors };
+                  delete newErrors.email;
+                  setErrors(newErrors);
+                }
               }}
               className={errors.email ? "border-red-500" : ""}
             />
@@ -144,7 +151,14 @@ function LoginPage() {
               value={password} 
               onChange={(e) => {
                 setPassword(e.target.value);
-                if (errors.password) validateField('password', e.target.value);
+                // Validar contraseña en tiempo real si hay contenido
+                if (e.target.value.length > 0) {
+                  validateField('password', e.target.value);
+                } else if (errors.password) {
+                  const newErrors = { ...errors };
+                  delete newErrors.password;
+                  setErrors(newErrors);
+                }
               }}
               className={errors.password ? "border-red-500" : ""}
             />
