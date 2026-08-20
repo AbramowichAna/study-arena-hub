@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Trophy, Clock, Calendar, Users, Pencil } from "lucide-react";
+import { Trophy, Clock, Users, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Avatar } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { format } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -18,13 +17,12 @@ export const Route = createFileRoute("/_authenticated/profile")({
 const GOAL_LABELS: Record<string, string> = {
   daily_hours: "Horas de estudio diarias",
   weekly_sessions: "Sesiones semanales",
-  weekly_quizzes: "Exámenes semanales",
 };
 
 function ProfilePage() {
   const { profile, user } = useAuth();
-  const [goals, setGoals] = useState<Record<string, number>>({ daily_hours: 2, weekly_sessions: 10, weekly_quizzes: 5 });
-  const [progress, setProgress] = useState<Record<string, number>>({ daily_hours: 0, weekly_sessions: 0, weekly_quizzes: 0 });
+  const [goals, setGoals] = useState<Record<string, number>>({ daily_hours: 2, weekly_sessions: 10 });
+  const [progress, setProgress] = useState<Record<string, number>>({ daily_hours: 0, weekly_sessions: 0 });
   const [editing, setEditing] = useState(false);
 
   const load = async () => {
@@ -38,9 +36,8 @@ function ProfilePage() {
     const dayAgo = new Date(Date.now() - 86400000).toISOString();
     const { data: events } = await supabase.from("point_events").select("type,points,created_at").eq("user_id", user.id).gte("created_at", weekAgo);
     const ws = (events ?? []).filter((e: any) => e.type === "session_complete").length;
-    const wq = (events ?? []).filter((e: any) => e.type === "quiz_score").length;
     const ts = (events ?? []).filter((e: any) => e.type === "session_complete" && e.created_at >= dayAgo).length;
-    setProgress({ daily_hours: (ts * 25) / 60, weekly_sessions: ws, weekly_quizzes: wq });
+    setProgress({ daily_hours: (ts * 25) / 60, weekly_sessions: ws });
   };
   useEffect(() => { load(); }, [user?.id]);
 
@@ -62,9 +59,6 @@ function ProfilePage() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold">{profile.name}</h1>
             <div className="text-sm text-muted-foreground">{profile.email}</div>
-            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> Se unió en {format(new Date(), "MMM yyyy")}
-            </div>
           </div>
           <div className="flex gap-2">
             <div className="px-3 py-2 rounded-md bg-warning/10 text-warning text-sm font-medium flex items-center gap-2">
@@ -75,9 +69,9 @@ function ProfilePage() {
       </Card>
 
       <div className="grid grid-cols-3 gap-4">
-        <MetricCard icon={Clock} label="Horas esta semana" value={(progress.weekly_sessions * 25 / 60).toFixed(1)} />
-        <MetricCard icon={Trophy} label="Promedio diario" value={(progress.daily_hours).toFixed(1) + "h"} />
-        <MetricCard icon={Users} label="Sesiones grupales" value={String(progress.weekly_sessions)} />
+        <MetricCard icon={Clock} label="Horas esta semana" value={(progress.weekly_sessions * 25 / 60).toFixed(1) + "h"} />
+        <MetricCard icon={Trophy} label="Sesiones esta semana" value={String(progress.weekly_sessions)} />
+        <MetricCard icon={Users} label="Horas hoy" value={(progress.daily_hours).toFixed(1) + "h"} />
       </div>
 
       <Card className="p-6 border-[0.5px]">
