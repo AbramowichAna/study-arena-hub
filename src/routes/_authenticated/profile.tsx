@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Trophy, Clock, Users, Pencil } from "lucide-react";
+import { Trophy, Clock, Users, Pencil, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,37 +74,72 @@ function ProfilePage() {
         <MetricCard icon={Users} label="Horas hoy" value={(progress.daily_hours).toFixed(1) + "h"} />
       </div>
 
-      <Card className="p-6 border-[0.5px]">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">Metas personales</h2>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Metas personales</h2>
+            <p className="text-sm text-muted-foreground">Configura tus objetivos de estudio y sigue tu progreso</p>
+          </div>
           {editing ? (
-            <Button size="sm" onClick={save}>Guardar</Button>
+            <Button onClick={save} className="bg-green-600 hover:bg-green-700">
+              <Check className="h-4 w-4 mr-1" /> Guardar
+            </Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5 mr-1" /> Editar</Button>
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4 mr-1" /> Editar metas
+            </Button>
           )}
         </div>
-        <div className="space-y-4">
+        
+        <div className="grid gap-6">
           {Object.entries(GOAL_LABELS).map(([k, label]) => {
             const target = goals[k] || 1;
             const cur = progress[k] || 0;
             const pct = Math.min(100, (cur / target) * 100);
+            const isCompleted = pct >= 100;
+            
             return (
-              <div key={k}>
-                <div className="flex items-center justify-between mb-1.5 text-sm">
-                  <span>{label}</span>
-                  {editing ? (
-                    <Input type="number" min={1} className="w-20 h-7" value={target}
-                      onChange={e => setGoals(g => ({ ...g, [k]: Number(e.target.value) }))} />
-                  ) : (
-                    <span className="text-muted-foreground">{cur.toFixed(k === "daily_hours" ? 1 : 0)} / {target}</span>
-                  )}
+              <Card key={k} className={`p-6 border-[0.5px] transition-all ${isCompleted ? 'bg-green-50 border-green-200' : 'hover:shadow-sm'}`}>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-primary'}`} />
+                      <span className="font-medium">{label}</span>
+                    </div>
+                    {editing ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Meta:</span>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          className="w-20 h-8" 
+                          value={target}
+                          onChange={e => setGoals(g => ({ ...g, [k]: Number(e.target.value) }))} 
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground font-medium">
+                        {cur.toFixed(k === "daily_hours" ? 1 : 0)} / {target}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Progreso</span>
+                      <span>{Math.round(pct)}%</span>
+                    </div>
+                    <Progress 
+                      value={pct} 
+                      className={`h-2 ${isCompleted ? 'bg-green-100' : ''}`}
+                    />
+                  </div>
                 </div>
-                <Progress value={pct} className="h-1.5" />
-              </div>
+              </Card>
             );
           })}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

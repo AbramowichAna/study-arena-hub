@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, SkipForward, X, Send, ArrowLeft, Mic, MicOff, Video, VideoOff, Check } from "lucide-react";
+import { Pause, Play, SkipForward, X, ArrowLeft, Mic, MicOff, Video, VideoOff } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -24,8 +23,6 @@ function SessionPage() {
   const [room, setRoom] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [text, setText] = useState("");
   const [remaining, setRemaining] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [micOn, setMicOn] = useState(false);
@@ -51,17 +48,12 @@ function SessionPage() {
         await supabase.from("room_participants").upsert({ room_id: roomId, user_id: user.id, status: "studying" }, { onConflict: "room_id,user_id" } as any).then(() => {});
       }
       loadParticipants();
-      loadMessages();
     })();
   }, [roomId, user?.id]);
 
   const loadParticipants = async () => {
     const { data } = await supabase.from("room_participants").select("id,user_id,status,points_earned,profiles(name)").eq("room_id", roomId).is("left_at", null);
     setParticipants((data as any) ?? []);
-  };
-  const loadMessages = async () => {
-    const { data } = await supabase.from("messages").select("id,user_id,content,created_at,profiles(name)").eq("room_id", roomId).order("created_at").limit(100);
-    setMessages((data as any) ?? []);
   };
 
   useEffect(() => {
@@ -70,8 +62,6 @@ function SessionPage() {
         (p) => setSession(p.new))
       .on("postgres_changes", { event: "*", schema: "public", table: "room_participants", filter: `room_id=eq.${roomId}` },
         () => loadParticipants())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room_id=eq.${roomId}` },
-        () => loadMessages())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [roomId]);
@@ -125,11 +115,6 @@ function SessionPage() {
     navigate({ to: "/dashboard" });
   };
 
-  const send = async () => {
-    if (!text.trim() || !user) return;
-    await supabase.from("messages").insert({ room_id: roomId, user_id: user.id, content: text.trim() });
-    setText("");
-  };
 
   const mins = Math.floor(remaining / 60).toString().padStart(2, "0");
   const secs = (remaining % 60).toString().padStart(2, "0");
@@ -195,12 +180,14 @@ function SessionPage() {
           {session?.phase === "focus" ? "Concentración" : "Descanso"}
         </div>
         <div className="text-7xl font-semibold tabular-nums">{mins}:{secs}</div>
+        <div className="text-sm text-muted-foreground mt-2">
+          Tiempo restante en esta fase
+        </div>
         <div className="flex justify-center gap-2 mt-6">
           <Button variant="outline" onClick={togglePause}>
             {session?.timer_state === "running" ? <><Pause className="h-4 w-4 mr-1" /> Pausar</> : <><Play className="h-4 w-4 mr-1" /> Reanudar</>}
           </Button>
           <Button variant="outline" onClick={skipPhase}><SkipForward className="h-4 w-4 mr-1" /> Saltar fase</Button>
-          <Button variant="default" onClick={complete} className="bg-green-600 hover:bg-green-700"><Check className="h-4 w-4 mr-1" /> Terminar sesión</Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="text-destructive"><X className="h-4 w-4 mr-1" /> Abandonar</Button>
@@ -219,33 +206,16 @@ function SessionPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-5 border-[0.5px]">
+      <div className="flex justify-center">
+        <Card className="p-5 border-[0.5px] w-full max-w-md">
           <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
           <div className="space-y-2">
             {participants.map(p => (
               <div key={p.id} className="flex items-center gap-3">
                 <Avatar name={p.profiles?.name ?? "?"} />
                 <div className="flex-1 text-sm">{p.profiles?.name}</div>
-                <div className={`h-2 w-2 rounded-full ${p.status === "studying" ? "bg-success" : "bg-warning"}`} />
               </div>
             ))}
-          </div>
-        </Card>
-
-        <Card className="p-5 border-[0.5px] flex flex-col">
-          <h3 className="font-semibold text-sm mb-3">Chat</h3>
-          <div className="flex-1 overflow-auto space-y-2 mb-3 min-h-[150px] max-h-[250px]">
-            {messages.map(m => (
-              <div key={m.id} className="text-sm">
-                <span className="font-medium text-primary">{m.profiles?.name ?? "?"}: </span>
-                <span>{m.content}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Mensaje…" />
-            <Button size="icon" onClick={send}><Send className="h-4 w-4" /></Button>
           </div>
         </Card>
       </div>

@@ -14,7 +14,6 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedMaterialsRouteImport } from './routes/_authenticated/materials'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
@@ -44,11 +43,6 @@ const RegisterRoute = RegisterRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedMaterialsRoute = AuthenticatedMaterialsRouteImport.update({
@@ -90,7 +84,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/home': typeof AuthenticatedHomeRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
@@ -103,7 +96,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/home': typeof AuthenticatedHomeRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
@@ -118,7 +110,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/materials': typeof AuthenticatedMaterialsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
@@ -133,7 +124,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard'
-    | '/home'
     | '/materials'
     | '/profile'
     | '/join/$inviteCode'
@@ -146,7 +136,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard'
-    | '/home'
     | '/materials'
     | '/profile'
     | '/join/$inviteCode'
@@ -160,7 +149,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/_authenticated/dashboard'
-    | '/_authenticated/home'
     | '/_authenticated/materials'
     | '/_authenticated/profile'
     | '/join/$inviteCode'
@@ -214,13 +202,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/home': {
-      id: '/_authenticated/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof AuthenticatedHomeRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/materials': {
       id: '/_authenticated/materials'
       path: '/materials'
@@ -268,7 +249,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedMaterialsRoute: typeof AuthenticatedMaterialsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
@@ -278,7 +258,6 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedMaterialsRoute: AuthenticatedMaterialsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,

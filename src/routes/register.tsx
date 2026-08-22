@@ -162,10 +162,8 @@ function RegisterPage() {
               required 
               maxLength={100}
               value={name} 
-              onChange={(e) => {
-                setName(e.target.value);
-                if (errors.name) validateField('name', e.target.value);
-              }}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={(e) => validateField('name', e.target.value)}
               className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -178,17 +176,8 @@ function RegisterPage() {
               required 
               maxLength={255}
               value={email} 
-              onChange={(e) => {
-                setEmail(e.target.value);
-                // Validar email en tiempo real si hay contenido
-                if (e.target.value.length > 0) {
-                  validateField('email', e.target.value);
-                } else if (errors.email) {
-                  const newErrors = { ...errors };
-                  delete newErrors.email;
-                  setErrors(newErrors);
-                }
-              }}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={(e) => validateField('email', e.target.value)}
               className={errors.email ? "border-red-500" : ""}
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
@@ -202,18 +191,8 @@ function RegisterPage() {
               minLength={8}
               maxLength={128}
               value={password} 
-              onChange={(e) => {
-                setPassword(e.target.value);
-                // Validar en tiempo real cuando hay contenido
-                if (e.target.value.length > 0) {
-                  validateField('password', e.target.value);
-                } else if (errors.password) {
-                  // Limpiar error si está vacío
-                  const newErrors = { ...errors };
-                  delete newErrors.password;
-                  setErrors(newErrors);
-                }
-              }}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={(e) => validateField('password', e.target.value)}
               className={errors.password ? "border-red-500" : ""}
             />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}

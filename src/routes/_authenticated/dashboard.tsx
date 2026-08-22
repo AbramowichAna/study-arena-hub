@@ -22,6 +22,9 @@ type Room = {
   group_id: string;
   groups: { name: string } | null;
   room_participants: { id: string }[];
+  focus_duration_minutes?: number;
+  break_duration_minutes?: number;
+  sessions?: { started_at: string; phase: string; duration_seconds: number; timer_state: string }[];
 };
 
 const FOCUS_OPTIONS = [15, 20, 25, 30, 45, 50];
@@ -32,6 +35,7 @@ function Dashboard() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [stats, setStats] = useState({ weekSessions: 0, todayMinutes: 0 });
+  const [goals, setGoals] = useState<Record<string, number>>({ daily_hours: 2, weekly_sessions: 10 });
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newGroup, setNewGroup] = useState<string>("");
@@ -40,23 +44,47 @@ function Dashboard() {
 
   const load = async () => {
     const [{ data: r }, { data: g }] = await Promise.all([
-      supabase.from("rooms").select("id,name,status,created_at,group_id,groups(name),room_participants(id)").eq("status", "active").order("created_at", { ascending: false }).limit(20),
+      supabase.from("rooms").select("id,name,status,created_at,group_id,focus_duration_minutes,break_duration_minutes,groups(name),room_participants(id),sessions(started_at,phase,duration_seconds,timer_state)").eq("status", "active").order("created_at", { ascending: false }).limit(20),
       supabase.from("group_members").select("groups(id,name)"),
     ]);
     setRooms((r as any) ?? []);
     setGroups(((g ?? []) as any).map((x: any) => x.groups).filter(Boolean));
 
     if (user) {
+      // Cargar objetivos del usuario
+      const { data: userGoals } = await supabase.from("user_goals").select("type,target").eq("user_id", user.id);
+      const g: Record<string, number> = { daily_hours: 2, weekly_sessions: 10 };
+      (userGoals ?? []).forEach((r: any) => (g[r.type] = r.target));
+      setGoals(g);
+
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      const dayAgo = new Date(Date.now() - 86400000).toISOString();
       const { data: myEvents } = await supabase
         .from("point_events").select("type,created_at")
         .eq("user_id", user.id).gte("created_at", weekAgo);
       const weekSessions = (myEvents ?? []).filter((e: any) => e.type === "session_complete").length;
-      setStats({ weekSessions, todayMinutes: weekSessions * 25 });
+      const todaySessions = (myEvents ?? []).filter((e: any) => e.type === "session_complete" && e.created_at >= dayAgo).length;
+      setStats({ weekSessions, todayMinutes: (todaySessions * 25) / 60 });
     }
   };
 
   useEffect(() => { load(); }, [user?.id]);
+
+  const getRemainingTime = (room: Room) => {
+    if (!room.sessions || room.sessions.length === 0) return null;
+    const session = room.sessions[0];
+    if (session.timer_state !== "running") return null;
+    
+    const started = new Date(session.started_at).getTime();
+    const elapsed = Math.floor((Date.now() - started) / 1000);
+    const remaining = Math.max(0, session.duration_seconds - elapsed);
+    
+    if (remaining === 0) return null;
+    
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const createRoom = async () => {
     if (!newName || !newGroup || !user) return;
@@ -90,8 +118,20 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <StatCard icon={Timer} label="Sesiones esta semana" value={String(stats.weekSessions)} accent="text-primary bg-primary/10" />
-        <StatCard icon={Clock} label="Tiempo de estudio hoy" value={`${stats.todayMinutes} min`} accent="text-success bg-success/10" progress={Math.min(100, (stats.todayMinutes / 120) * 100)} />
+        <StatCard 
+          icon={Timer} 
+          label="Sesiones esta semana" 
+          value={`${stats.weekSessions} / ${goals.weekly_sessions}`} 
+          accent="text-primary bg-primary/10" 
+          progress={Math.min(100, (stats.weekSessions / goals.weekly_sessions) * 100)} 
+        />
+        <StatCard 
+          icon={Clock} 
+          label="Horas de estudio hoy" 
+          value={`${stats.todayMinutes.toFixed(1)} / ${goals.daily_hours}h`} 
+          accent="text-success bg-success/10" 
+          progress={Math.min(100, (stats.todayMinutes / goals.daily_hours) * 100)} 
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -140,27 +180,32 @@ function Dashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {rooms.map(r => (
-              <Card key={r.id} className="p-4 border-[0.5px] hover:border-primary/40 transition">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="font-medium">{r.name}</div>
-                    <div className="text-xs text-muted-foreground">{r.groups?.name}</div>
+            {rooms.map(r => {
+              const remainingTime = getRemainingTime(r);
+              return (
+                <Card key={r.id} className="p-4 border-[0.5px] hover:border-primary/40 transition">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="font-medium">{r.name}</div>
+                      <div className="text-xs text-muted-foreground">{r.groups?.name}</div>
+                      {remainingTime && (
+                        <div className="text-xs text-orange-600 font-medium mt-1">
+                          Termina en {remainingTime}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant={r.status === "active" ? "default" : "secondary"} className={r.status === "active" ? "bg-success text-success-foreground" : ""}>
-                    {r.status === "active" ? "● En vivo" : r.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
+                    </div>
+                    <Link to="/session/$roomId" params={{ roomId: r.id }}>
+                      <Button size="sm" variant="outline">Unirse</Button>
+                    </Link>
                   </div>
-                  <Link to="/session/$roomId" params={{ roomId: r.id }}>
-                    <Button size="sm" variant="outline">Unirse</Button>
-                  </Link>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </div>
 
