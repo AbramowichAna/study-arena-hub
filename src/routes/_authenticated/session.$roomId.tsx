@@ -151,70 +151,53 @@ function SessionPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-6">
-        {/* Video grid */}
-        <Card className="col-span-3 p-5 border-[0.5px] bg-slate-900">
-          <div className="grid grid-cols-2 gap-3">
-            {participants.slice(0, 4).map(p => {
-              const isMe = p.user_id === user?.id;
-              const cam = isMe ? camOn : false;
-              const mic = isMe ? micOn : false;
-              return (
-                <div key={p.id} className="relative aspect-video bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
-                  {!cam && (
-                    <div className="flex flex-col items-center gap-2">
-                      <Avatar name={p.profiles?.name ?? "?"} size={48} />
-                      <VideoOff className="h-5 w-5 text-slate-500" />
-                    </div>
-                  )}
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                    <div className="bg-black/50 rounded p-1">
-                      {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
-                    </div>
-                    <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
-                      {p.profiles?.name ?? "?"}{isMe && " (tú)"}
-                    </div>
+      {/* Video grid */}
+      <Card className="p-5 border-[0.5px] bg-slate-900">
+        <div className="grid grid-cols-2 gap-3">
+          {participants.slice(0, 4).map(p => {
+            const isMe = p.user_id === user?.id;
+            const cam = isMe ? camOn : false;
+            const mic = isMe ? micOn : false;
+            return (
+              <div key={p.id} className="relative aspect-video bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
+                {!cam && (
+                  <div className="flex flex-col items-center gap-2">
+                    <Avatar name={p.profiles?.name ?? "?"} size={48} />
+                    <VideoOff className="h-5 w-5 text-slate-500" />
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                  <div className="bg-black/50 rounded p-1">
+                    {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
+                  </div>
+                  <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
+                    {p.profiles?.name ?? "?"}{isMe && " (tú)"}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-center gap-2 mt-4">
-            <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
-              className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-              {micOn ? <><Mic className="h-4 w-4 mr-1" /> Micrófono encendido</> : <><MicOff className="h-4 w-4 mr-1" /> Micrófono apagado</>}
-            </Button>
-            <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
-              className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-              {camOn ? <><Video className="h-4 w-4 mr-1" /> Cámara encendida</> : <><VideoOff className="h-4 w-4 mr-1" /> Cámara apagada</>}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Participantes en sidebar */}
-        <Card className="p-4 border-[0.5px]">
-          <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
-          <div className="space-y-3">
-            {participants.map(p => (
-              <div key={p.id} className="flex items-center gap-3">
-                <Avatar name={p.profiles?.name ?? "?"} size={32} />
-                <div className="flex-1 text-sm truncate">{p.profiles?.name}</div>
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-center gap-2 mt-4">
+          <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
+            className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+            {micOn ? <><Mic className="h-4 w-4 mr-1" /> Micrófono encendido</> : <><MicOff className="h-4 w-4 mr-1" /> Micrófono apagado</>}
+          </Button>
+          <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
+            className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+            {camOn ? <><Video className="h-4 w-4 mr-1" /> Cámara encendida</> : <><VideoOff className="h-4 w-4 mr-1" /> Cámara apagada</>}
+          </Button>
+        </div>
+      </Card>
 
-      <Card className="p-10 border-[0.5px] text-center">
+      <div className="grid grid-cols-3 gap-6">
+        <Card className="col-span-2 p-10 border-[0.5px] text-center">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
           {session?.phase === "focus" ? "Concentración" : "Descanso"}
         </div>
         <div className="text-7xl font-semibold tabular-nums">{mins}:{secs}</div>
-        <div className="text-sm text-muted-foreground mt-2">
-          Tiempo restante en esta fase
-        </div>
         <div className="text-lg text-muted-foreground mt-4 border-t pt-4">
-          Sesión termina en: <span className="font-semibold text-foreground">
+          Tiempo restante de la sesión: <span className="font-semibold text-foreground">
             {totalHours > 0 ? `${totalHours}h ${remainingMins}m` : `${remainingMins}m`}
           </span>
         </div>
@@ -239,8 +222,21 @@ function SessionPage() {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      </Card>
+        </Card>
 
+        {/* Participantes más pequeños al lado */}
+        <Card className="p-4 border-[0.5px]">
+          <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
+          <div className="space-y-2">
+            {participants.map(p => (
+              <div key={p.id} className="flex items-center gap-2">
+                <Avatar name={p.profiles?.name ?? "?"} size={24} />
+                <div className="flex-1 text-xs truncate">{p.profiles?.name}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       <Dialog open={celebrate} onOpenChange={setCelebrate}>
         <DialogContent className="text-center py-10">

@@ -86,6 +86,25 @@ function Dashboard() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getTotalSessionRemaining = (room: Room) => {
+    if (!room.sessions || room.sessions.length === 0) return null;
+    const session = room.sessions[0];
+    if (session.timer_state !== "running") return null;
+    
+    const focusTime = (room.focus_duration_minutes || 25) * 60;
+    const breakTime = (room.break_duration_minutes || 5) * 60;
+    const totalSessionTime = (focusTime + breakTime) * 3; // 3 ciclos
+    
+    const sessionStartTime = new Date(session.started_at).getTime();
+    const totalElapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+    const totalRemaining = Math.max(0, totalSessionTime - totalElapsed);
+    
+    if (totalRemaining === 0) return null;
+    
+    const totalMins = Math.floor(totalRemaining / 60);
+    return totalMins;
+  };
+
   const createRoom = async () => {
     if (!newName || !newGroup || !user) return;
     const { data, error } = await supabase
@@ -182,11 +201,17 @@ function Dashboard() {
           <div className="grid grid-cols-2 gap-3">
             {rooms.map(r => {
               const remainingTime = getRemainingTime(r);
+              const totalSessionMins = getTotalSessionRemaining(r);
               return (
                 <Card key={r.id} className="p-4 border-[0.5px] hover:border-primary/40 transition relative">
                   {remainingTime && (
                     <div className="absolute top-3 right-3 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
                       {remainingTime}
+                    </div>
+                  )}
+                  {totalSessionMins && (
+                    <div className="absolute top-12 right-3 text-xs text-muted-foreground">
+                      Sesión: {totalSessionMins}m
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-2">
