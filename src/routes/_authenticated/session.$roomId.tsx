@@ -24,6 +24,7 @@ function SessionPage() {
   const [session, setSession] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [remaining, setRemaining] = useState(0);
+  const [totalSessionTime, setTotalSessionTime] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
@@ -48,6 +49,13 @@ function SessionPage() {
         await supabase.from("room_participants").upsert({ room_id: roomId, user_id: user.id, status: "studying" }, { onConflict: "room_id,user_id" } as any).then(() => {});
       }
       loadParticipants();
+      
+      // Calcular tiempo total de sesión (3 ciclos de foco + descanso)
+      if (r) {
+        const focusTime = (r.focus_duration_minutes || 25) * 60;
+        const breakTime = (r.break_duration_minutes || 5) * 60;
+        setTotalSessionTime((focusTime + breakTime) * 3); // 3 ciclos
+      }
     })();
   }, [roomId, user?.id]);
 
@@ -118,6 +126,14 @@ function SessionPage() {
 
   const mins = Math.floor(remaining / 60).toString().padStart(2, "0");
   const secs = (remaining % 60).toString().padStart(2, "0");
+  
+  // Calcular tiempo transcurrido total y restante total
+  const sessionStartTime = session ? new Date(session.started_at).getTime() : Date.now();
+  const totalElapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+  const totalRemaining = Math.max(0, totalSessionTime - totalElapsed);
+  const totalMins = Math.floor(totalRemaining / 60);
+  const totalHours = Math.floor(totalMins / 60);
+  const remainingMins = totalMins % 60;
 
   if (!room) return <div className="text-muted-foreground">Cargando…</div>;
 
@@ -132,48 +148,62 @@ function SessionPage() {
             <div className="font-semibold">{room.name}</div>
             <div className="text-xs text-muted-foreground">{room.groups?.name}</div>
           </div>
-          <Badge className="bg-success text-success-foreground">● En Vivo</Badge>
         </div>
       </div>
 
-      {/* Video grid */}
-      <Card className="p-5 border-[0.5px] bg-slate-900">
-        <div className="grid grid-cols-3 gap-3">
-          {participants.map(p => {
-            const isMe = p.user_id === user?.id;
-            const cam = isMe ? camOn : false;
-            const mic = isMe ? micOn : false;
-            return (
-              <div key={p.id} className="relative aspect-video bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
-                {!cam && (
-                  <div className="flex flex-col items-center gap-2">
-                    <Avatar name={p.profiles?.name ?? "?"} size={48} />
-                    <VideoOff className="h-5 w-5 text-slate-500" />
-                  </div>
-                )}
-                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                  <div className="bg-black/50 rounded p-1">
-                    {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
-                  </div>
-                  <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
-                    {p.profiles?.name ?? "?"}{isMe && " (tú)"}
+      <div className="grid grid-cols-4 gap-6">
+        {/* Video grid */}
+        <Card className="col-span-3 p-5 border-[0.5px] bg-slate-900">
+          <div className="grid grid-cols-2 gap-3">
+            {participants.slice(0, 4).map(p => {
+              const isMe = p.user_id === user?.id;
+              const cam = isMe ? camOn : false;
+              const mic = isMe ? micOn : false;
+              return (
+                <div key={p.id} className="relative aspect-video bg-slate-800 rounded-md overflow-hidden flex items-center justify-center">
+                  {!cam && (
+                    <div className="flex flex-col items-center gap-2">
+                      <Avatar name={p.profiles?.name ?? "?"} size={48} />
+                      <VideoOff className="h-5 w-5 text-slate-500" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <div className="bg-black/50 rounded p-1">
+                      {mic ? <Mic className="h-3 w-3 text-white" /> : <MicOff className="h-3 w-3 text-red-400" />}
+                    </div>
+                    <div className="text-xs text-white bg-black/50 px-2 py-0.5 rounded truncate max-w-[70%]">
+                      {p.profiles?.name ?? "?"}{isMe && " (tú)"}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-center gap-2 mt-4">
+            <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
+              className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+              {micOn ? <><Mic className="h-4 w-4 mr-1" /> Micrófono encendido</> : <><MicOff className="h-4 w-4 mr-1" /> Micrófono apagado</>}
+            </Button>
+            <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
+              className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
+              {camOn ? <><Video className="h-4 w-4 mr-1" /> Cámara encendida</> : <><VideoOff className="h-4 w-4 mr-1" /> Cámara apagada</>}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Participantes en sidebar */}
+        <Card className="p-4 border-[0.5px]">
+          <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
+          <div className="space-y-3">
+            {participants.map(p => (
+              <div key={p.id} className="flex items-center gap-3">
+                <Avatar name={p.profiles?.name ?? "?"} size={32} />
+                <div className="flex-1 text-sm truncate">{p.profiles?.name}</div>
               </div>
-            );
-          })}
-        </div>
-        <div className="flex justify-center gap-2 mt-4">
-          <Button size="sm" variant={micOn ? "default" : "outline"} onClick={() => setMicOn(v => !v)}
-            className={micOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-            {micOn ? <><Mic className="h-4 w-4 mr-1" /> Micrófono encendido</> : <><MicOff className="h-4 w-4 mr-1" /> Micrófono apagado</>}
-          </Button>
-          <Button size="sm" variant={camOn ? "default" : "outline"} onClick={() => setCamOn(v => !v)}
-            className={camOn ? "" : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"}>
-            {camOn ? <><Video className="h-4 w-4 mr-1" /> Cámara encendida</> : <><VideoOff className="h-4 w-4 mr-1" /> Cámara apagada</>}
-          </Button>
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       <Card className="p-10 border-[0.5px] text-center">
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
@@ -182,6 +212,11 @@ function SessionPage() {
         <div className="text-7xl font-semibold tabular-nums">{mins}:{secs}</div>
         <div className="text-sm text-muted-foreground mt-2">
           Tiempo restante en esta fase
+        </div>
+        <div className="text-lg text-muted-foreground mt-4 border-t pt-4">
+          Sesión termina en: <span className="font-semibold text-foreground">
+            {totalHours > 0 ? `${totalHours}h ${remainingMins}m` : `${remainingMins}m`}
+          </span>
         </div>
         <div className="flex justify-center gap-2 mt-6">
           <Button variant="outline" onClick={togglePause}>
@@ -206,19 +241,6 @@ function SessionPage() {
         </div>
       </Card>
 
-      <div className="flex justify-center">
-        <Card className="p-5 border-[0.5px] w-full max-w-md">
-          <h3 className="font-semibold text-sm mb-3">Participantes ({participants.length})</h3>
-          <div className="space-y-2">
-            {participants.map(p => (
-              <div key={p.id} className="flex items-center gap-3">
-                <Avatar name={p.profiles?.name ?? "?"} />
-                <div className="flex-1 text-sm">{p.profiles?.name}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
 
       <Dialog open={celebrate} onOpenChange={setCelebrate}>
         <DialogContent className="text-center py-10">

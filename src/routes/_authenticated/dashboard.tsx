@@ -183,16 +183,16 @@ function Dashboard() {
             {rooms.map(r => {
               const remainingTime = getRemainingTime(r);
               return (
-                <Card key={r.id} className="p-4 border-[0.5px] hover:border-primary/40 transition">
+                <Card key={r.id} className="p-4 border-[0.5px] hover:border-primary/40 transition relative">
+                  {remainingTime && (
+                    <div className="absolute top-3 right-3 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
+                      {remainingTime}
+                    </div>
+                  )}
                   <div className="flex items-start justify-between mb-2">
-                    <div>
+                    <div className="pr-16">
                       <div className="font-medium">{r.name}</div>
                       <div className="text-xs text-muted-foreground">{r.groups?.name}</div>
-                      {remainingTime && (
-                        <div className="text-xs text-orange-600 font-medium mt-1">
-                          Termina en {remainingTime}
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3">
