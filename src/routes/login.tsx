@@ -29,8 +29,8 @@ function LoginPage() {
 
   useEffect(() => { 
     if (user) {
-      // Redirect to intended destination or default to /home
-      const destination = redirect ? decodeURIComponent(redirect) : "/home";
+      // Redirect to intended destination or default to /dashboard
+      const destination = redirect ? decodeURIComponent(redirect) : "/dashboard";
       navigate({ to: destination as any, replace: true });
     }
   }, [user, navigate, redirect]);
@@ -96,8 +96,8 @@ function LoginPage() {
       }
       
       toast.success("¡Bienvenido de vuelta!");
-      // Redirect to intended destination or default to /home  
-      const destination = redirect ? decodeURIComponent(redirect) : "/home";
+      // Redirect to intended destination or default to /dashboard
+      const destination = redirect ? decodeURIComponent(redirect) : "/dashboard";
       navigate({ to: destination as any, replace: true });
     } catch (error: any) {
       toast.error("Error de conexión. Por favor intenta nuevamente.");

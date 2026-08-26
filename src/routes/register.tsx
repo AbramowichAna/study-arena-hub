@@ -96,7 +96,7 @@ function RegisterPage() {
       
       const redirect = invite
         ? `${window.location.origin}/join/${invite}`
-        : `${window.location.origin}/home`;
+        : `${window.location.origin}/dashboard`;
         
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail, 
@@ -127,7 +127,7 @@ function RegisterPage() {
         return;
       }
       if (data.session) {
-        navigate({ to: "/home" });
+        navigate({ to: "/dashboard" });
         return;
       }
       toast.success("¡Cuenta creada! Revisa tu email para verificar, luego inicia sesión.");

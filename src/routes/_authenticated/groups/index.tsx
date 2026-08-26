@@ -23,9 +23,11 @@ function GroupsPage() {
   const [name, setName] = useState("");
 
   const load = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("group_members")
-      .select("groups(id,name,admin_id,group_members(count))");
+      .select("groups(id,name,admin_id,group_members(count))")
+      .eq("user_id", user.id);
     const list = ((data ?? []) as any[]).map(r => ({
       id: r.groups.id,
       name: r.groups.name,
@@ -79,7 +81,9 @@ function GroupsPage() {
                 <Users className="h-3 w-3" /> {g.members} miembro{g.members === 1 ? "" : "s"}
               </div>
               <Link to="/groups/$groupId" params={{ groupId: g.id }}>
-                <Button variant="outline" size="sm" className="mt-4 w-full">Administrar</Button>
+                <Button variant="outline" size="sm" className="mt-4 w-full">
+                  {g.admin_id === user?.id ? "Administrar" : "Ver grupo"}
+                </Button>
               </Link>
             </Card>
           ))}

@@ -48,7 +48,7 @@ function MaterialsPage() {
   const load = async () => {
     const [{ data: m }, { data: g }] = await Promise.all([
       supabase.from("study_materials").select("*,groups(name)").order("created_at", { ascending: false }),
-      supabase.from("group_members").select("groups(id,name)"),
+      user ? supabase.from("group_members").select("groups(id,name)").eq("user_id", user.id) : Promise.resolve({ data: [] as any[] }),
     ]);
     setMaterials((m as any) ?? []);
     setGroups(((g ?? []) as any).map((x: any) => x.groups).filter(Boolean));

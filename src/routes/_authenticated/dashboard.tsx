@@ -45,7 +45,7 @@ function Dashboard() {
   const load = async () => {
     const [{ data: r }, { data: g }] = await Promise.all([
       supabase.from("rooms").select("id,name,status,created_at,group_id,focus_duration_minutes,break_duration_minutes,groups(name),room_participants(id),sessions(started_at,phase,duration_seconds,timer_state)").eq("status", "active").order("created_at", { ascending: false }).limit(20),
-      supabase.from("group_members").select("groups(id,name)"),
+      user ? supabase.from("group_members").select("groups(id,name)").eq("user_id", user.id) : Promise.resolve({ data: [] as any[] }),
     ]);
     setRooms((r as any) ?? []);
     setGroups(((g ?? []) as any).map((x: any) => x.groups).filter(Boolean));

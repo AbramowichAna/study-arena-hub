@@ -1,11 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Timer, BookOpen, User, Swords, Trophy, LogOut } from "lucide-react";
+import { Home, Timer, BookOpen, User, Swords, Trophy, LogOut, Bell, Check, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 type Group = { id: string; name: string };
+type Invitation = { id: string; group_id: string; groups: { name: string } | null };
 
 const navItems = [
   { to: "/dashboard", label: "Tablero", icon: Home },
@@ -17,16 +21,45 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [groups, setGroups] = useState<Group[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
 
-  useEffect(() => {
+  const loadGroups = () => {
+    if (!profile?.id) return;
     supabase
       .from("group_members")
       .select("groups(id,name)")
+      .eq("user_id", profile.id)
       .then(({ data }) => {
         const list = (data ?? []).map((r: any) => r.groups).filter(Boolean) as Group[];
         setGroups(list);
       });
-  }, [profile?.id]);
+  };
+  useEffect(() => { loadGroups(); }, [profile?.id]);
+
+  const loadInvitations = () => {
+    if (!profile?.email) return;
+    supabase
+      .from("group_invitations")
+      .select("id,group_id,groups(name)")
+      .eq("invited_email", profile.email)
+      .eq("status", "pending")
+      .then(({ data }) => setInvitations((data as any) ?? []));
+  };
+  useEffect(() => { loadInvitations(); }, [profile?.email]);
+
+  const respond = async (inv: Invitation, status: "accepted" | "declined") => {
+    if (!profile?.id) return;
+    if (status === "accepted") {
+      const { error: joinErr } = await supabase.from("group_members").insert({ group_id: inv.group_id, user_id: profile.id });
+      if (joinErr && joinErr.code !== "23505") return toast.error(joinErr.message);
+    }
+    const { data, error } = await supabase.from("group_invitations").update({ status }).eq("id", inv.id).select();
+    if (error) return toast.error(error.message);
+    if (!data || data.length === 0) return toast.error("No se pudo actualizar la invitación. Probá de nuevo.");
+    toast.success(status === "accepted" ? `Te uniste a ${inv.groups?.name}` : "Invitación rechazada");
+    loadInvitations();
+    if (status === "accepted") loadGroups();
+  };
 
   const initials = (profile?.name ?? "?")
     .split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
@@ -99,6 +132,40 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Trophy className="h-4 w-4" />
             {profile?.total_points ?? 0} pts
           </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="relative h-9 w-9 rounded-full flex items-center justify-center hover:bg-muted transition-colors" aria-label="Invitaciones">
+                <Bell className="h-4 w-4" />
+                {invitations.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center font-medium">
+                    {invitations.length}
+                  </span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <div className="text-sm font-medium mb-3">Invitaciones</div>
+              {invitations.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No tenés invitaciones pendientes.</div>
+              ) : (
+                <div className="space-y-3">
+                  {invitations.map(inv => (
+                    <div key={inv.id} className="space-y-2 pb-3 border-b last:border-0 last:pb-0">
+                      <div className="text-sm">Te invitaron a <span className="font-medium">{inv.groups?.name}</span></div>
+                      <div className="flex gap-2">
+                        <Button size="sm" className="flex-1" onClick={() => respond(inv, "accepted")}>
+                          <Check className="h-3.5 w-3.5 mr-1" /> Aceptar
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1" onClick={() => respond(inv, "declined")}>
+                          <X className="h-3.5 w-3.5 mr-1" /> Rechazar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           <Link to="/profile" className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
             {initials}
           </Link>
