@@ -21,7 +21,6 @@ function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
 
   const load = async () => {
     const { data } = await supabase
@@ -45,16 +44,6 @@ function GroupsPage() {
     setOpen(false); setName(""); load();
   };
 
-  const join = async () => {
-    if (!joinCode || !user) return;
-    const { data: g, error } = await supabase.from("groups").select("id").eq("invite_code", joinCode.trim()).maybeSingle();
-    if (error || !g) return toast.error("Código de invitación inválido");
-    const { error: e2 } = await supabase.from("group_members").insert({ group_id: g.id, user_id: user.id });
-    if (e2) return toast.error(e2.message);
-    toast.success("Te has unido al grupo");
-    setJoinCode(""); load();
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -63,10 +52,6 @@ function GroupsPage() {
           <p className="text-sm text-muted-foreground mt-1">Estudia con tus compañeros</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex items-center gap-2">
-            <Input placeholder="Código de invitación" value={joinCode} onChange={e => setJoinCode(e.target.value)} className="w-40" />
-            <Button variant="outline" onClick={join}>Unirse</Button>
-          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> Crear</Button></DialogTrigger>
             <DialogContent>
@@ -82,7 +67,7 @@ function GroupsPage() {
         <Card className="p-12 text-center border-[0.5px]">
           <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
           <h3 className="font-medium mb-1">Aún no hay grupos</h3>
-          <p className="text-sm text-muted-foreground mb-4">Crea uno o únete con un código de invitación.</p>
+          <p className="text-sm text-muted-foreground mb-4">Crea un grupo para empezar a estudiar con tus compañeros.</p>
           <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Crear grupo</Button>
         </Card>
       ) : (

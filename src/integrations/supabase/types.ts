@@ -378,6 +378,7 @@ export type Database = {
           group_id: string
           id: string
           name: string
+          scheduled_at: string | null
           status: Database["public"]["Enums"]["room_status"]
         }
         Insert: {
@@ -388,6 +389,7 @@ export type Database = {
           group_id: string
           id?: string
           name: string
+          scheduled_at?: string | null
           status?: Database["public"]["Enums"]["room_status"]
         }
         Update: {
@@ -398,6 +400,7 @@ export type Database = {
           group_id?: string
           id?: string
           name?: string
+          scheduled_at?: string | null
           status?: Database["public"]["Enums"]["room_status"]
         }
         Relationships: [

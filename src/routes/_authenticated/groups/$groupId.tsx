@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Copy, X, ArrowLeft, Trophy, Mail, Link2, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Users } from "lucide-react";
+import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,21 +15,25 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, type MaterialLike } from "@/components/materials/MaterialActionDialogs";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   component: GroupDetail,
 });
 
-type Material = {
-  id: string; name: string; type: "flashcard_set" | "quiz" | "file";
-  subject: string | null; file_url: string | null;
+type Material = MaterialLike & {
+  type: "flashcard_set" | "quiz" | "file";
+  subject: string | null;
+  file_url: string | null;
 };
 
 type Room = {
-  id: string; name: string; status: string; created_at: string;
+  id: string; name: string; status: string; created_at: string; scheduled_at: string | null;
   focus_duration_minutes?: number; break_duration_minutes?: number;
   room_participants: { id: string }[];
 };
+
+type UserResult = { id: string; name: string; email: string };
 
 const FOCUS_OPTIONS = [15, 20, 25, 30, 45, 50];
 const BREAK_OPTIONS = [5, 10, 15];
@@ -55,16 +59,25 @@ function GroupDetail() {
   const navigate = useNavigate();
   const [group, setGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
-  const [invites, setInvites] = useState<any[]>([]);
   const [ranking, setRanking] = useState<{ user_id: string; name: string; points: number }[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [inviteEmail, setInviteEmail] = useState("");
+
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteResults, setInviteResults] = useState<UserResult[]>([]);
+  const [selectedInvitee, setSelectedInvitee] = useState<UserResult | null>(null);
+
   const [sessionOpen, setSessionOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [focusMin, setFocusMin] = useState("25");
   const [breakMin, setBreakMin] = useState("5");
+  const [sessionMode, setSessionMode] = useState<"now" | "later">("now");
+  const [scheduledAt, setScheduledAt] = useState("");
+
+  const [practice, setPractice] = useState<Material | null>(null);
+  const [play, setPlay] = useState<Material | null>(null);
+  const [leaderboardFor, setLeaderboardFor] = useState<Material | null>(null);
 
   const load = async () => {
     const [{ data: g }, { data: m }] = await Promise.all([
@@ -94,21 +107,32 @@ function GroupDetail() {
       setRanking(Array.from(map.values()).sort((a, b) => b.points - a.points));
     }
 
-    const { data: inv } = await supabase.from("group_invitations").select("*").eq("group_id", groupId).eq("status", "pending");
-    setInvites(inv ?? []);
-
-    const { data: mat } = await supabase.from("study_materials").select("id,name,type,subject,file_url").eq("group_id", groupId).order("created_at", { ascending: false });
+    const { data: mat } = await supabase.from("study_materials").select("id,name,type,subject,file_url,group_id,user_id").eq("group_id", groupId).order("created_at", { ascending: false });
     setMaterials((mat as any) ?? []);
 
-    const { data: r } = await supabase.from("rooms").select("id,name,status,created_at,focus_duration_minutes,break_duration_minutes,room_participants(id)").eq("group_id", groupId).order("created_at", { ascending: false });
+    const { data: r } = await supabase.from("rooms").select("id,name,status,created_at,scheduled_at,focus_duration_minutes,break_duration_minutes,room_participants(id)").eq("group_id", groupId).order("created_at", { ascending: false });
     setRooms((r as any) ?? []);
   };
   useEffect(() => { load(); }, [groupId]);
 
+  // Live search for invite-by-user
+  useEffect(() => {
+    const q = inviteQuery.trim();
+    if (q.length < 2) { setInviteResults([]); return; }
+    const handle = setTimeout(async () => {
+      const safe = q.replace(/[%,()]/g, "");
+      const memberIds = new Set(members.map((m: any) => m.user_id));
+      const { data } = await supabase.from("profiles").select("id,name,email")
+        .or(`name.ilike.%${safe}%,email.ilike.%${safe}%`)
+        .limit(8);
+      setInviteResults(((data ?? []) as UserResult[]).filter(u => u.id !== user?.id && !memberIds.has(u.id)));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [inviteQuery, members, user?.id]);
+
   if (!group) return <div className="text-muted-foreground">Cargando…</div>;
 
   const isAdmin = group.admin_id === user?.id;
-  const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/join/${group.invite_code}` : "";
 
   const leave = async () => {
     if (!user) return;
@@ -125,32 +149,39 @@ function GroupDetail() {
   };
 
   const sendInvite = async () => {
-    const email = inviteEmail.trim().toLowerCase();
-    if (!email) return;
+    if (!selectedInvitee) return;
     const { error } = await supabase.from("group_invitations").insert({
-      group_id: groupId, invited_email: email, invite_code: group.invite_code, status: "pending",
+      group_id: groupId, invited_email: selectedInvitee.email, invite_code: group.invite_code, status: "pending",
     });
     if (error) return toast.error(error.message);
-    toast.success("Invitación enviada");
-    setInviteEmail("");
+    toast.success(`Invitación enviada a ${selectedInvitee.name}`);
+    setSelectedInvitee(null); setInviteQuery("");
     load();
   };
 
   const createSession = async () => {
     if (!newName || !user) return;
+    if (sessionMode === "later" && !scheduledAt) return toast.error("Elegí una fecha para programar la sesión");
     const { data, error } = await supabase
       .from("rooms")
       .insert({
-        name: newName, group_id: groupId, created_by: user.id, status: "active",
+        name: newName, group_id: groupId, created_by: user.id,
+        status: sessionMode === "now" ? "active" : "waiting",
+        scheduled_at: sessionMode === "later" ? new Date(scheduledAt).toISOString() : null,
         focus_duration_minutes: Number(focusMin),
         break_duration_minutes: Number(breakMin),
       })
       .select().single();
     if (error) return toast.error(error.message);
     await supabase.from("room_participants").insert({ room_id: data.id, user_id: user.id });
-    toast.success("Sesión creada");
-    setSessionOpen(false); setNewName(""); setFocusMin("25"); setBreakMin("5");
-    navigate({ to: "/session/$roomId", params: { roomId: data.id } });
+    setSessionOpen(false); setNewName(""); setFocusMin("25"); setBreakMin("5"); setSessionMode("now"); setScheduledAt("");
+    if (sessionMode === "now") {
+      toast.success("Sesión creada");
+      navigate({ to: "/session/$roomId", params: { roomId: data.id } });
+    } else {
+      toast.success("Sesión programada");
+      load();
+    }
   };
 
   const topPoints = ranking[0]?.points ?? 0;
@@ -170,7 +201,7 @@ function GroupDetail() {
         </div>
         <div className="flex gap-2">
           {isAdmin && (
-            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <Dialog open={inviteOpen} onOpenChange={v => { setInviteOpen(v); if (!v) { setInviteQuery(""); setInviteResults([]); setSelectedInvitee(null); } }}>
               <DialogTrigger asChild>
                 <Button variant="outline"><UserPlus className="h-4 w-4 mr-1" /> Invitar</Button>
               </DialogTrigger>
@@ -178,25 +209,41 @@ function GroupDetail() {
                 <DialogHeader><DialogTitle>Invitar al grupo</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-2">
                   <div>
-                    <div className="text-sm font-medium mb-2 flex items-center gap-2"><Link2 className="h-4 w-4" /> Enlace de invitación</div>
-                    <div className="flex gap-2">
-                      <Input readOnly value={inviteLink} className="font-mono text-xs" />
-                      <Button variant="outline" onClick={() => { navigator.clipboard.writeText(inviteLink); toast.success("Copiado"); }}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium mb-2 flex items-center gap-2"><Mail className="h-4 w-4" /> Invitar por correo</div>
-                    <div className="flex gap-2">
-                      <Input placeholder="usuario@ejemplo.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} type="email" />
-                      <Button onClick={sendInvite}>Enviar</Button>
-                    </div>
-                    {invites.length > 0 && (
-                      <div className="mt-3 text-xs text-muted-foreground">Pendientes: {invites.map((i: any) => i.invited_email).join(", ")}</div>
+                    <div className="text-sm font-medium mb-2 flex items-center gap-2"><Search className="h-4 w-4" /> Buscar usuario</div>
+                    {selectedInvitee ? (
+                      <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                        <Avatar name={selectedInvitee.name} size={32} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{selectedInvitee.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{selectedInvitee.email}</div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setSelectedInvitee(null)}><X className="h-4 w-4" /></Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Input placeholder="Nombre o email" value={inviteQuery} onChange={e => setInviteQuery(e.target.value)} />
+                        {inviteResults.length > 0 && (
+                          <div className="mt-2 border rounded-md divide-y max-h-48 overflow-auto">
+                            {inviteResults.map(u => (
+                              <button key={u.id} onClick={() => { setSelectedInvitee(u); setInviteQuery(""); setInviteResults([]); }}
+                                className="w-full flex items-center gap-3 p-2 hover:bg-muted text-left">
+                                <Avatar name={u.name} size={28} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium truncate">{u.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {inviteQuery.trim().length >= 2 && inviteResults.length === 0 && (
+                          <div className="text-xs text-muted-foreground mt-2">Sin resultados</div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
+                <DialogFooter><Button onClick={sendInvite} disabled={!selectedInvitee}>Invitar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           )}
@@ -208,7 +255,20 @@ function GroupDetail() {
               <DialogHeader><DialogTitle>Crear sesión de estudio</DialogTitle></DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2"><Label>Nombre de la sesión</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Estudio de Cálculo" /></div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>¿Cuándo?</Label>
+                  <div className="flex gap-2">
+                    <Button type="button" variant={sessionMode === "now" ? "default" : "outline"} className="flex-1" onClick={() => setSessionMode("now")}>Ahora</Button>
+                    <Button type="button" variant={sessionMode === "later" ? "default" : "outline"} className="flex-1" onClick={() => setSessionMode("later")}>Programar</Button>
+                  </div>
+                </div>
+                {sessionMode === "later" && (
+                  <div className="space-y-2">
+                    <Label>Fecha y hora</Label>
+                    <Input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <Label>Enfoque (min)</Label>
                     <Select value={focusMin} onValueChange={setFocusMin}>
@@ -223,57 +283,86 @@ function GroupDetail() {
                       <SelectContent>{BREAK_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Duración total</Label>
+                    <div className="px-3 py-2 bg-muted rounded-md text-sm text-center">
+                      {Math.ceil((Number(focusMin) + Number(breakMin)) * 3)} min
+                    </div>
+                  </div>
                 </div>
               </div>
-              <DialogFooter><Button onClick={createSession} disabled={!newName}>Crear e iniciar</Button></DialogFooter>
+              <DialogFooter>
+                <Button onClick={createSession} disabled={!newName || (sessionMode === "later" && !scheduledAt)}>
+                  {sessionMode === "now" ? "Crear e iniciar" : "Programar sesión"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      <Tabs defaultValue="materials">
+      <Tabs defaultValue="sessions">
         <TabsList>
-          <TabsTrigger value="materials">Material</TabsTrigger>
-          <TabsTrigger value="members">Miembros</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
+          <TabsTrigger value="members">Miembros</TabsTrigger>
+          <TabsTrigger value="materials">Materiales</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="materials" className="space-y-4">
-          {materials.length === 0 ? (
-            <Card className="p-12 text-center border-[0.5px]">
-              <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <h3 className="font-medium mb-1">Aún no hay materiales</h3>
-              <p className="text-sm text-muted-foreground mb-4">Comparte archivos, tarjetas o cuestionarios con este grupo desde Materiales.</p>
-              <Link to="/materials"><Button><Plus className="h-4 w-4 mr-1" /> Ir a Materiales</Button></Link>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {materials.map(m => (
-                <Card key={m.id} className="p-5 border-[0.5px] flex flex-col">
-                  <div className={`h-9 w-9 rounded-md flex items-center justify-center mb-3 ${
-                    m.type === "quiz" ? "bg-warning/10 text-warning" :
-                    m.type === "flashcard_set" ? "bg-primary/10 text-primary" :
-                    "bg-success/10 text-success"
-                  }`}>
-                    {m.type === "quiz" ? <Brain className="h-4 w-4" /> :
-                     m.type === "flashcard_set" ? <BookOpen className="h-4 w-4" /> :
-                     <FileText className="h-4 w-4" />}
-                  </div>
-                  <div className="font-medium">{m.name}</div>
-                  {m.subject && <div className="text-xs text-muted-foreground mt-0.5">{m.subject}</div>}
-                  <div className="mt-4">
-                    {m.type === "file" ? (
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => openFile(m.file_url)}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver
-                      </Button>
-                    ) : (
-                      <Link to="/materials"><Button size="sm" variant="outline" className="w-full">Abrir en Materiales</Button></Link>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
+        <TabsContent value="sessions" className="space-y-6">
+          <div>
+            <h3 className="font-semibold text-sm mb-3">Próximas y en curso</h3>
+            {upcomingRooms.length === 0 ? (
+              <Card className="p-8 text-center border-[0.5px] text-sm text-muted-foreground">
+                No hay sesiones activas. Crea una con el botón "Crear sesión".
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {upcomingRooms.map(r => {
+                  const isScheduled = r.status === "waiting" && r.scheduled_at;
+                  return (
+                    <Card key={r.id} className="p-4 border-[0.5px]">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-medium">{r.name}</div>
+                        {isScheduled && <Badge variant="outline">Programada</Badge>}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {isScheduled
+                          ? `Programada: ${format(new Date(r.scheduled_at as string), "d MMM, HH:mm")}`
+                          : format(new Date(r.created_at), "d MMM, HH:mm")}
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
+                        </div>
+                        <Link to="/session/$roomId" params={{ roomId: r.id }}>
+                          <Button size="sm" variant="outline">{r.status === "active" ? "Unirse" : "Entrar"}</Button>
+                        </Link>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm mb-3">Terminadas</h3>
+            {finishedRooms.length === 0 ? (
+              <Card className="p-8 text-center border-[0.5px] text-sm text-muted-foreground">
+                Todavía no hay sesiones terminadas.
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {finishedRooms.map(r => (
+                  <Card key={r.id} className="p-4 border-[0.5px] opacity-80">
+                    <div className="font-medium">{r.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(r.created_at), "d MMM, HH:mm")}</div>
+                    <Badge variant="outline" className="mt-2">Terminada</Badge>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="members" className="space-y-6">
@@ -348,53 +437,61 @@ function GroupDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="sessions" className="space-y-6">
-          <div>
-            <h3 className="font-semibold text-sm mb-3">Próximas y en curso</h3>
-            {upcomingRooms.length === 0 ? (
-              <Card className="p-8 text-center border-[0.5px] text-sm text-muted-foreground">
-                No hay sesiones activas. Crea una con el botón "Crear sesión".
-              </Card>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {upcomingRooms.map(r => (
-                  <Card key={r.id} className="p-4 border-[0.5px]">
-                    <div className="font-medium">{r.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(r.created_at), "d MMM, HH:mm")}</div>
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
-                      </div>
-                      <Link to="/session/$roomId" params={{ roomId: r.id }}>
-                        <Button size="sm" variant="outline">Unirse</Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-sm mb-3">Terminadas</h3>
-            {finishedRooms.length === 0 ? (
-              <Card className="p-8 text-center border-[0.5px] text-sm text-muted-foreground">
-                Todavía no hay sesiones terminadas.
-              </Card>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {finishedRooms.map(r => (
-                  <Card key={r.id} className="p-4 border-[0.5px] opacity-80">
-                    <div className="font-medium">{r.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(r.created_at), "d MMM, HH:mm")}</div>
-                    <Badge variant="outline" className="mt-2">Terminada</Badge>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
+        <TabsContent value="materials" className="space-y-4">
+          {materials.length === 0 ? (
+            <Card className="p-12 text-center border-[0.5px]">
+              <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <h3 className="font-medium mb-1">Aún no hay materiales</h3>
+              <p className="text-sm text-muted-foreground mb-4">Comparte archivos, tarjetas o cuestionarios con este grupo desde Materiales.</p>
+              <Link to="/materials"><Button><Plus className="h-4 w-4 mr-1" /> Ir a Materiales</Button></Link>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {materials.map(m => (
+                <Card key={m.id} className="p-5 border-[0.5px] flex flex-col">
+                  <div className={`h-9 w-9 rounded-md flex items-center justify-center mb-3 ${
+                    m.type === "quiz" ? "bg-warning/10 text-warning" :
+                    m.type === "flashcard_set" ? "bg-primary/10 text-primary" :
+                    "bg-success/10 text-success"
+                  }`}>
+                    {m.type === "quiz" ? <Brain className="h-4 w-4" /> :
+                     m.type === "flashcard_set" ? <BookOpen className="h-4 w-4" /> :
+                     <FileText className="h-4 w-4" />}
+                  </div>
+                  <div className="font-medium">{m.name}</div>
+                  {m.subject && <div className="text-xs text-muted-foreground mt-0.5">{m.subject}</div>}
+                  <div className="mt-4 flex gap-2">
+                    {m.type === "file" && (
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openFile(m.file_url)}>
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver
+                      </Button>
+                    )}
+                    {m.type === "flashcard_set" && (
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setPractice(m)}>
+                        <Play className="h-3.5 w-3.5 mr-1" /> Practicar
+                      </Button>
+                    )}
+                    {m.type === "quiz" && (
+                      <>
+                        <Button size="sm" className="flex-1" onClick={() => setPlay(m)}>
+                          <Play className="h-3.5 w-3.5 mr-1" /> Jugar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setLeaderboardFor(m)}>
+                          <Trophy className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
+
+      {practice && <PracticeDialog material={practice} onClose={() => setPractice(null)} />}
+      {play && <PlayQuizDialog material={play} onClose={() => setPlay(null)} />}
+      {leaderboardFor && <QuizLeaderboardDialog material={leaderboardFor} onClose={() => setLeaderboardFor(null)} />}
     </div>
   );
 }
