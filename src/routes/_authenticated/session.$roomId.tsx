@@ -1,9 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { X, Mic, MicOff, Video, VideoOff, BookOpen, FileText, Brain, ExternalLink, Play, Trophy } from "lucide-react";
+import { X, Mic, MicOff, Video, VideoOff, BookOpen, FileText, Brain, ExternalLink, Play, Trophy, Clock } from "lucide-react";
+import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Avatar } from "@/components/AppShell";
 import { PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, type MaterialLike } from "@/components/materials/MaterialActionDialogs";
@@ -45,6 +46,7 @@ function SessionPage() {
   const [practice, setPractice] = useState<Material | null>(null);
   const [play, setPlay] = useState<Material | null>(null);
   const [leaderboardFor, setLeaderboardFor] = useState<Material | null>(null);
+  const [locked, setLocked] = useState(false);
   const completedRef = useRef(false);
 
   // load + join
@@ -52,6 +54,13 @@ function SessionPage() {
     (async () => {
       const { data: r } = await supabase.from("rooms").select("*,groups(name)").eq("id", roomId).maybeSingle();
       setRoom(r);
+
+      // No permitir entrar a una sesión programada antes de su horario
+      if (r?.status === "waiting" && r.scheduled_at && new Date(r.scheduled_at).getTime() > Date.now()) {
+        setLocked(true);
+        return;
+      }
+
       const initialFocus = ((r?.focus_duration_minutes ?? 25) as number) * 60;
       const { data: s } = await supabase.from("sessions").select("*").eq("room_id", roomId).order("started_at", { ascending: false }).limit(1).maybeSingle();
       if (s) setSession(s);
@@ -119,12 +128,29 @@ function SessionPage() {
     setCelebrate(true);
   };
 
-  const abandon = async () => {
+  // Aplica la penalización por abandono (sin navegar; la navegación la resuelve el blocker)
+  const abandonPenalty = async () => {
     if (!user) return;
     await supabase.from("point_events").insert({ user_id: user.id, type: "abandon_penalty", points: -20 });
     await supabase.from("room_participants").update({ left_at: new Date().toISOString() }).match({ room_id: roomId, user_id: user.id });
     toast.error("Sesión abandonada: -20 pts");
-    navigate({ to: "/dashboard" });
+  };
+
+  // Bloquear cualquier navegación fuera de la sesión mientras esté activa
+  const blocker = useBlocker({
+    shouldBlockFn: () => !!room && room.status !== "finished" && !celebrate && !locked,
+    withResolver: true,
+    enableBeforeUnload: () => !!room && room.status !== "finished" && !celebrate && !locked,
+  });
+
+  // Confirmó salir: cuenta como abandono y continúa a la sección elegida.
+  // El ref evita que el cierre del diálogo (onOpenChange) dispare reset() y
+  // cancele la navegación mientras se aplica la penalización.
+  const leavingRef = useRef(false);
+  const confirmLeave = async () => {
+    leavingRef.current = true;
+    await abandonPenalty();
+    blocker.proceed?.();
   };
 
 
@@ -141,6 +167,22 @@ function SessionPage() {
 
   if (!room) return <div className="text-muted-foreground">Cargando…</div>;
 
+  if (locked) {
+    return (
+      <div className="max-w-md mx-auto mt-16">
+        <Card className="p-8 border-[0.5px] text-center space-y-3">
+          <Clock className="h-10 w-10 mx-auto text-primary" />
+          <div className="text-lg font-semibold">La sesión aún no está disponible</div>
+          <p className="text-sm text-muted-foreground">
+            "{room.name}" está programada para el {format(new Date(room.scheduled_at), "d 'de' MMMM 'a las' HH:mm")}.
+            Podrás entrar cuando llegue ese horario.
+          </p>
+          <Button onClick={() => navigate({ to: "/dashboard" })}>Volver al panel</Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -148,22 +190,26 @@ function SessionPage() {
           <div className="font-semibold">{room.name}</div>
           <div className="text-xs text-muted-foreground">{room.groups?.name}</div>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive"><X className="h-4 w-4 mr-1" /> Abandonar</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Abandonar sesión?</AlertDialogTitle>
-              <AlertDialogDescription>Perderás 20 puntos y saldrás de la sala.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Quedarse</AlertDialogCancel>
-              <AlertDialogAction onClick={abandon} className="bg-destructive">Abandonar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button variant="outline" size="sm" className="text-destructive" onClick={() => navigate({ to: "/dashboard" })}>
+          <X className="h-4 w-4 mr-1" /> Abandonar
+        </Button>
       </div>
+
+      {/* Confirmación al intentar salir de la sesión (navbar, perfil, abandonar, etc.) */}
+      <AlertDialog open={blocker.status === "blocked"} onOpenChange={(o) => { if (!o && !leavingRef.current) blocker.reset?.(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Abandonar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Si sales de la sesión se contará como abandono y perderás 20 puntos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Quedarse</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLeave} className="bg-destructive">Abandonar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Video grid */}
       <Card className="p-5 border-[0.5px] bg-slate-900">

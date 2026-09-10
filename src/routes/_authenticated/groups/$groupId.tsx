@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users, Pencil, Trash2 } from "lucide-react";
+import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users, Pencil, Trash2, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +89,13 @@ function GroupDetail() {
   const [practice, setPractice] = useState<Material | null>(null);
   const [play, setPlay] = useState<Material | null>(null);
   const [leaderboardFor, setLeaderboardFor] = useState<Material | null>(null);
+
+  // Re-render periódico para habilitar "Entrar" cuando llega el horario programado
+  const [, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = async () => {
     const [{ data: g }, { data: m }] = await Promise.all([
@@ -411,6 +418,7 @@ function GroupDetail() {
               <div className="grid grid-cols-2 gap-3">
                 {upcomingRooms.map(r => {
                   const isScheduled = r.status === "waiting" && r.scheduled_at;
+                  const canJoin = !isScheduled || new Date(r.scheduled_at as string).getTime() <= Date.now();
                   return (
                     <Card key={r.id} className="p-4 border-[0.5px]">
                       <div className="flex items-start justify-between gap-2">
@@ -449,9 +457,15 @@ function GroupDetail() {
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
                         </div>
-                        <Link to="/session/$roomId" params={{ roomId: r.id }}>
-                          <Button size="sm" variant="outline">{r.status === "active" ? "Unirse" : "Entrar"}</Button>
-                        </Link>
+                        {canJoin ? (
+                          <Link to="/session/$roomId" params={{ roomId: r.id }}>
+                            <Button size="sm" variant="outline">{r.status === "active" ? "Unirse" : "Entrar"}</Button>
+                          </Link>
+                        ) : (
+                          <Button size="sm" variant="outline" disabled title="Disponible en el horario programado">
+                            <Clock className="h-3.5 w-3.5 mr-1" /> Aún no disponible
+                          </Button>
+                        )}
                       </div>
                     </Card>
                   );

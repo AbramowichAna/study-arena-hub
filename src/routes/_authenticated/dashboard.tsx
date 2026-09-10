@@ -324,6 +324,7 @@ function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 {scheduledRooms.map(r => {
                   const canEdit = r.created_by === user?.id;
+                  const canJoin = new Date(r.scheduled_at!).getTime() <= Date.now();
                   return (
                     <Card key={r.id} className="p-4 border-[0.5px]">
                       <div className="flex items-start justify-between gap-2">
@@ -363,9 +364,15 @@ function Dashboard() {
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Users className="h-3.5 w-3.5" /> {r.room_participants?.length ?? 0}
                         </div>
-                        <Link to="/session/$roomId" params={{ roomId: r.id }}>
-                          <Button size="sm" variant="outline">Entrar</Button>
-                        </Link>
+                        {canJoin ? (
+                          <Link to="/session/$roomId" params={{ roomId: r.id }}>
+                            <Button size="sm" variant="outline">Entrar</Button>
+                          </Link>
+                        ) : (
+                          <Button size="sm" variant="outline" disabled title="Disponible en el horario programado">
+                            <Clock className="h-3.5 w-3.5 mr-1" /> Aún no disponible
+                          </Button>
+                        )}
                       </div>
                     </Card>
                   );
