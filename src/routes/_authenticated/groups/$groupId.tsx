@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users } from "lucide-react";
+import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,8 @@ type Material = MaterialLike & {
 
 type Room = {
   id: string; name: string; status: string; created_at: string; scheduled_at: string | null;
-  focus_duration_minutes?: number; break_duration_minutes?: number;
+  created_by: string;
+  focus_duration_minutes?: number; break_duration_minutes?: number; cycles?: number;
   room_participants: { id: string }[];
 };
 
@@ -37,6 +38,14 @@ type UserResult = { id: string; name: string; email: string };
 
 const FOCUS_OPTIONS = [15, 20, 25, 30, 45, 50];
 const BREAK_OPTIONS = [5, 10, 15];
+const CYCLE_OPTIONS = [1, 2, 3, 4, 5, 6];
+
+// ISO string -> "YYYY-MM-DDTHH:mm" in local time for <input type="datetime-local">
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 16);
+}
 
 function startOfWeek() {
   const d = new Date();
@@ -69,9 +78,11 @@ function GroupDetail() {
   const [selectedInvitee, setSelectedInvitee] = useState<UserResult | null>(null);
 
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [focusMin, setFocusMin] = useState("25");
   const [breakMin, setBreakMin] = useState("5");
+  const [cycles, setCycles] = useState("3");
   const [sessionMode, setSessionMode] = useState<"now" | "later">("now");
   const [scheduledAt, setScheduledAt] = useState("");
 
@@ -110,7 +121,7 @@ function GroupDetail() {
     const { data: mat } = await supabase.from("study_materials").select("id,name,type,subject,file_url,group_id,user_id").eq("group_id", groupId).order("created_at", { ascending: false });
     setMaterials((mat as any) ?? []);
 
-    const { data: r } = await supabase.from("rooms").select("id,name,status,created_at,scheduled_at,focus_duration_minutes,break_duration_minutes,room_participants(id)").eq("group_id", groupId).order("created_at", { ascending: false });
+    const { data: r } = await supabase.from("rooms").select("id,name,status,created_at,scheduled_at,created_by,focus_duration_minutes,break_duration_minutes,cycles,room_participants(id)").eq("group_id", groupId).order("created_at", { ascending: false });
     setRooms((r as any) ?? []);
   };
   useEffect(() => { load(); }, [groupId]);
@@ -159,9 +170,53 @@ function GroupDetail() {
     load();
   };
 
+  const resetSessionForm = () => {
+    setEditingRoomId(null); setNewName(""); setFocusMin("25"); setBreakMin("5"); setCycles("3"); setSessionMode("now"); setScheduledAt("");
+  };
+
+  const openCreateSession = () => {
+    resetSessionForm();
+    setSessionOpen(true);
+  };
+
+  const openEditSession = (r: Room) => {
+    setEditingRoomId(r.id);
+    setNewName(r.name);
+    setFocusMin(String(r.focus_duration_minutes ?? 25));
+    setBreakMin(String(r.break_duration_minutes ?? 5));
+    setCycles(String(r.cycles ?? 3));
+    setSessionMode("later");
+    setScheduledAt(r.scheduled_at ? toLocalInput(r.scheduled_at) : "");
+    setSessionOpen(true);
+  };
+
   const createSession = async () => {
     if (!newName || !user) return;
     if (sessionMode === "later" && !scheduledAt) return toast.error("Elegí una fecha para programar la sesión");
+
+    if (editingRoomId) {
+      const { error } = await supabase
+        .from("rooms")
+        .update({
+          name: newName,
+          status: sessionMode === "now" ? "active" : "waiting",
+          scheduled_at: sessionMode === "later" ? new Date(scheduledAt).toISOString() : null,
+          focus_duration_minutes: Number(focusMin),
+          break_duration_minutes: Number(breakMin),
+          cycles: Number(cycles),
+        })
+        .eq("id", editingRoomId);
+      if (error) return toast.error(error.message);
+      setSessionOpen(false); resetSessionForm();
+      if (sessionMode === "now") {
+        navigate({ to: "/session/$roomId", params: { roomId: editingRoomId } });
+      } else {
+        toast.success("Sesión actualizada");
+        load();
+      }
+      return;
+    }
+
     const { data, error } = await supabase
       .from("rooms")
       .insert({
@@ -170,11 +225,12 @@ function GroupDetail() {
         scheduled_at: sessionMode === "later" ? new Date(scheduledAt).toISOString() : null,
         focus_duration_minutes: Number(focusMin),
         break_duration_minutes: Number(breakMin),
+        cycles: Number(cycles),
       })
       .select().single();
     if (error) return toast.error(error.message);
     await supabase.from("room_participants").insert({ room_id: data.id, user_id: user.id });
-    setSessionOpen(false); setNewName(""); setFocusMin("25"); setBreakMin("5"); setSessionMode("now"); setScheduledAt("");
+    setSessionOpen(false); resetSessionForm();
     if (sessionMode === "now") {
       toast.success("Sesión creada");
       navigate({ to: "/session/$roomId", params: { roomId: data.id } });
@@ -182,6 +238,20 @@ function GroupDetail() {
       toast.success("Sesión programada");
       load();
     }
+  };
+
+  const deleteGroup = async () => {
+    const { error } = await supabase.from("groups").delete().eq("id", groupId);
+    if (error) return toast.error(error.message);
+    toast.success("Grupo eliminado");
+    navigate({ to: "/groups" });
+  };
+
+  const deleteRoom = async (id: string) => {
+    const { error } = await supabase.from("rooms").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Sesión eliminada");
+    load();
   };
 
   const topPoints = ranking[0]?.points ?? 0;
@@ -247,12 +317,29 @@ function GroupDetail() {
               </DialogContent>
             </Dialog>
           )}
-          <Dialog open={sessionOpen} onOpenChange={setSessionOpen}>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive"><Trash2 className="h-4 w-4 mr-1" /> Eliminar grupo</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar este grupo?</AlertDialogTitle>
+                  <AlertDialogDescription>Se eliminarán todas sus sesiones, miembros e invitaciones. Esta acción no se puede deshacer.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={deleteGroup} className="bg-destructive">Eliminar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Dialog open={sessionOpen} onOpenChange={v => { setSessionOpen(v); if (!v) resetSessionForm(); }}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-1" /> Crear sesión</Button>
+              <Button onClick={openCreateSession}><Plus className="h-4 w-4 mr-1" /> Crear sesión</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Crear sesión de estudio</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingRoomId ? "Editar sesión programada" : "Crear sesión de estudio"}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2"><Label>Nombre de la sesión</Label><Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Estudio de Cálculo" /></div>
                 <div className="space-y-2">
@@ -284,16 +371,21 @@ function GroupDetail() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Duración total</Label>
-                    <div className="px-3 py-2 bg-muted rounded-md text-sm text-center">
-                      {Math.ceil((Number(focusMin) + Number(breakMin)) * 3)} min
-                    </div>
+                    <Label>Ciclos</Label>
+                    <Select value={cycles} onValueChange={setCycles}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{CYCLE_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 bg-muted rounded-md text-sm">
+                  <span className="text-muted-foreground">Duración total de la sesión</span>
+                  <span className="font-medium">{(Number(focusMin) + Number(breakMin)) * Number(cycles)} min</span>
                 </div>
               </div>
               <DialogFooter>
                 <Button onClick={createSession} disabled={!newName || (sessionMode === "later" && !scheduledAt)}>
-                  {sessionMode === "now" ? "Crear e iniciar" : "Programar sesión"}
+                  {sessionMode === "now" ? (editingRoomId ? "Iniciar ahora" : "Crear e iniciar") : (editingRoomId ? "Guardar cambios" : "Programar sesión")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -323,7 +415,30 @@ function GroupDetail() {
                     <Card key={r.id} className="p-4 border-[0.5px]">
                       <div className="flex items-start justify-between gap-2">
                         <div className="font-medium">{r.name}</div>
-                        {isScheduled && <Badge variant="outline">Programada</Badge>}
+                        {isScheduled && (isAdmin || r.created_by === user?.id) && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditSession(r)} aria-label="Editar sesión">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" aria-label="Eliminar sesión">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar sesión programada?</AlertDialogTitle>
+                                  <AlertDialogDescription>Se eliminará "{r.name}". Esta acción no se puede deshacer.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteRoom(r.id)} className="bg-destructive">Eliminar</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {isScheduled
@@ -357,7 +472,6 @@ function GroupDetail() {
                   <Card key={r.id} className="p-4 border-[0.5px] opacity-80">
                     <div className="font-medium">{r.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(r.created_at), "d MMM, HH:mm")}</div>
-                    <Badge variant="outline" className="mt-2">Terminada</Badge>
                   </Card>
                 ))}
               </div>
