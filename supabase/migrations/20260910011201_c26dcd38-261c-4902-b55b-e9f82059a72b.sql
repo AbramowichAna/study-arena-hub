@@ -1,0 +1,1 @@
+ALTER TABLE public.rooms ADD COLUMN cycles integer NOT NULL DEFAULT 3;

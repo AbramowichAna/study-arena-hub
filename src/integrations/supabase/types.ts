@@ -374,6 +374,7 @@ export type Database = {
           break_duration_minutes: number
           created_at: string
           created_by: string
+          cycles: number
           focus_duration_minutes: number
           group_id: string
           id: string
@@ -385,6 +386,7 @@ export type Database = {
           break_duration_minutes?: number
           created_at?: string
           created_by: string
+          cycles?: number
           focus_duration_minutes?: number
           group_id: string
           id?: string
@@ -396,6 +398,7 @@ export type Database = {
           break_duration_minutes?: number
           created_at?: string
           created_by?: string
+          cycles?: number
           focus_duration_minutes?: number
           group_id?: string
           id?: string
