@@ -120,6 +120,42 @@ export type Database = {
           },
         ]
       }
+      group_invite_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          group_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          group_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_invite_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_invite_links_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           admin_id: string
@@ -603,6 +639,23 @@ export type Database = {
       award_pending_session_points: {
         Args: { p_group_id: string }
         Returns: undefined
+      }
+      get_group_invite_preview: {
+        Args: { p_token: string }
+        Returns: {
+          group_id: string
+          group_name: string
+          member_count: number
+          invited_by: string
+        }[]
+      }
+      join_group_via_invite_link: {
+        Args: { p_token: string }
+        Returns: string
+      }
+      regenerate_group_invite_link: {
+        Args: { p_group_id: string }
+        Returns: string
       }
       is_group_admin: {
         Args: { _group: string; _user: string }

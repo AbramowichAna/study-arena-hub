@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Avatar } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,6 +92,12 @@ function GroupDetail() {
   const [inviteQuery, setInviteQuery] = useState("");
   const [inviteResults, setInviteResults] = useState<UserResult[]>([]);
   const [selectedInvitee, setSelectedInvitee] = useState<UserResult | null>(null);
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState(false);
+  const [linkActionLoading, setLinkActionLoading] = useState(false);
+  const [regenConfirm, setRegenConfirm] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const [sessionOpen, setSessionOpen] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -217,6 +224,33 @@ function GroupDetail() {
     load();
   };
 
+  const loadInviteLink = async () => {
+    setLinkLoading(true); setLinkError(false);
+    const { data, error } = await supabase.from("group_invite_links").select("token").eq("group_id", groupId).maybeSingle();
+    if (error) setLinkError(true);
+    else setLinkToken(data?.token ?? null);
+    setLinkLoading(false);
+  };
+
+  const generateLink = async () => {
+    setLinkActionLoading(true);
+    const { data, error } = await supabase.rpc("regenerate_group_invite_link", { p_group_id: groupId });
+    if (error) toast.error(error.message);
+    else { setLinkToken(data as string); setRegenConfirm(false); }
+    setLinkActionLoading(false);
+  };
+
+  const copyLink = async () => {
+    if (!linkToken) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/join/${linkToken}`);
+      setCopyFailed(false);
+      toast.success("Link copiado");
+    } catch {
+      setCopyFailed(true);
+    }
+  };
+
   const resetSessionForm = () => {
     setEditingRoomId(null); setNewName(""); setFocusMin("25"); setBreakMin("5"); setCycles("3"); setSessionMode("now"); setScheduledAt("");
   };
@@ -318,7 +352,14 @@ function GroupDetail() {
         </div>
         <div className="flex gap-2">
           {isAdmin && (
-            <Dialog open={inviteOpen} onOpenChange={v => { setInviteOpen(v); if (!v) { setInviteQuery(""); setInviteResults([]); setSelectedInvitee(null); } }}>
+            <Dialog open={inviteOpen} onOpenChange={v => {
+              setInviteOpen(v);
+              if (v) { loadInviteLink(); }
+              else {
+                setInviteQuery(""); setInviteResults([]); setSelectedInvitee(null);
+                setLinkToken(null); setLinkError(false); setRegenConfirm(false); setCopyFailed(false);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button variant="outline"><UserPlus className="h-4 w-4 mr-1" /> Invitar</Button>
               </DialogTrigger>
@@ -357,6 +398,52 @@ function GroupDetail() {
                           <div className="text-xs text-muted-foreground mt-2">Sin resultados</div>
                         )}
                       </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">o</span>
+                    <Separator className="flex-1" />
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium mb-2">Link de invitación</div>
+                    {linkLoading ? (
+                      <div className="text-xs text-muted-foreground">Cargando…</div>
+                    ) : linkError ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-destructive">No se pudo cargar el link de invitación.</div>
+                        <Button size="sm" variant="outline" onClick={loadInviteLink}>Reintentar</Button>
+                      </div>
+                    ) : !linkToken ? (
+                      <Button variant="outline" onClick={generateLink} disabled={linkActionLoading}>
+                        {linkActionLoading ? "Generando…" : "Generar link de invitación"}
+                      </Button>
+                    ) : regenConfirm ? (
+                      <div className="space-y-3 p-3 rounded-md border bg-muted/30">
+                        <div className="text-sm">El link anterior va a dejar de funcionar.</div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setRegenConfirm(false)} disabled={linkActionLoading}>Cancelar</Button>
+                          <Button size="sm" onClick={generateLink} disabled={linkActionLoading}>
+                            {linkActionLoading ? "Generando…" : "Generar nuevo"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input aria-label="Link de invitación" readOnly value={`${window.location.origin}/join/${linkToken}`} />
+                          <Button variant="outline" onClick={copyLink}>Copiar</Button>
+                        </div>
+                        {copyFailed && (
+                          <div className="text-xs text-destructive">No se pudo copiar. Copiá la URL manualmente.</div>
+                        )}
+                        <button type="button" onClick={() => setRegenConfirm(true)}
+                          className="text-xs text-muted-foreground hover:text-foreground underline">
+                          Generar nuevo link
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

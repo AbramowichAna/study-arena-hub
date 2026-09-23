@@ -3,6 +3,7 @@ import { Home, Timer, BookOpen, User, Swords, Trophy, LogOut, Bell, Check, X } f
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { GROUPS_UPDATED_EVENT } from "@/lib/joinGroup";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -46,6 +47,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       .then(({ data }) => setInvitations((data as any) ?? []));
   };
   useEffect(() => { loadInvitations(); }, [profile?.email]);
+
+  // A join completed elsewhere (e.g. /join/:token) — refresh the sidebar list and the bell.
+  useEffect(() => {
+    const handler = () => { loadGroups(); loadInvitations(); };
+    window.addEventListener(GROUPS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(GROUPS_UPDATED_EVENT, handler);
+  }, [profile?.id, profile?.email]);
 
   const respond = async (inv: Invitation, status: "accepted" | "declined") => {
     if (!profile?.id) return;
