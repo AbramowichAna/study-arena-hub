@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users, Pencil, Trash2, Clock } from "lucide-react";
+import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, Users, Pencil, Trash2, Clock, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, type MaterialLike } from "@/components/materials/MaterialActionDialogs";
+import {
+  PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, UploadFileDialog, FlashcardSetDialog, MaterialCard,
+  type MaterialLike,
+} from "@/components/materials/MaterialActionDialogs";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   component: GroupDetail,
@@ -71,13 +74,6 @@ function withDenseRank<T extends { points: number }>(sorted: T[]): (T & { positi
   });
 }
 
-async function openFile(path: string | null) {
-  if (!path) return;
-  const { data, error } = await supabase.storage.from("study-files").createSignedUrl(path, 3600);
-  if (error || !data) return toast.error("No se pudo abrir el archivo");
-  window.open(data.signedUrl, "_blank");
-}
-
 function GroupDetail() {
   const { groupId } = Route.useParams();
   const { user } = useAuth();
@@ -111,6 +107,8 @@ function GroupDetail() {
   const [practice, setPractice] = useState<Material | null>(null);
   const [play, setPlay] = useState<Material | null>(null);
   const [leaderboardFor, setLeaderboardFor] = useState<Material | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [flashOpen, setFlashOpen] = useState(false);
 
   // Re-render periódico para habilitar "Entrar" cuando llega el horario programado
   const [, setNow] = useState(Date.now());
@@ -693,51 +691,35 @@ function GroupDetail() {
         </TabsContent>
 
         <TabsContent value="materials" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Compartí archivos y tarjetas con todo el grupo.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}><Upload className="h-3.5 w-3.5 mr-1" /> Subir archivo</Button>
+              <Button size="sm" onClick={() => setFlashOpen(true)}><BookOpen className="h-3.5 w-3.5 mr-1" /> Crear tarjetas</Button>
+            </div>
+          </div>
+
           {materials.length === 0 ? (
             <Card className="p-12 text-center border-[0.5px]">
               <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-medium mb-1">Aún no hay materiales</h3>
-              <p className="text-sm text-muted-foreground mb-4">Comparte archivos, tarjetas o cuestionarios con este grupo desde Materiales.</p>
-              <Link to="/materials"><Button><Plus className="h-4 w-4 mr-1" /> Ir a Materiales</Button></Link>
+              <p className="text-sm text-muted-foreground mb-4">Compartí un archivo o creá un set de tarjetas para este grupo.</p>
+              <Button onClick={() => setFlashOpen(true)}><Plus className="h-4 w-4 mr-1" /> Crear tarjetas</Button>
             </Card>
           ) : (
             <div className="grid grid-cols-3 gap-4">
               {materials.map(m => (
-                <Card key={m.id} className="p-5 border-[0.5px] flex flex-col">
-                  <div className={`h-9 w-9 rounded-md flex items-center justify-center mb-3 ${
-                    m.type === "quiz" ? "bg-warning/10 text-warning" :
-                    m.type === "flashcard_set" ? "bg-primary/10 text-primary" :
-                    "bg-success/10 text-success"
-                  }`}>
-                    {m.type === "quiz" ? <Brain className="h-4 w-4" /> :
-                     m.type === "flashcard_set" ? <BookOpen className="h-4 w-4" /> :
-                     <FileText className="h-4 w-4" />}
-                  </div>
-                  <div className="font-medium">{m.name}</div>
-                  {m.subject && <div className="text-xs text-muted-foreground mt-0.5">{m.subject}</div>}
-                  <div className="mt-4 flex gap-2">
-                    {m.type === "file" && (
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openFile(m.file_url)}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver
-                      </Button>
-                    )}
-                    {m.type === "flashcard_set" && (
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setPractice(m)}>
-                        <Play className="h-3.5 w-3.5 mr-1" /> Practicar
-                      </Button>
-                    )}
-                    {m.type === "quiz" && (
-                      <>
-                        <Button size="sm" className="flex-1" onClick={() => setPlay(m)}>
-                          <Play className="h-3.5 w-3.5 mr-1" /> Jugar
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setLeaderboardFor(m)}>
-                          <Trophy className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </Card>
+                <MaterialCard
+                  key={m.id}
+                  material={m}
+                  currentUserId={user?.id}
+                  isGroupAdmin={isAdmin}
+                  groups={[{ id: groupId, name: group.name }]}
+                  onPractice={() => setPractice(m)}
+                  onPlay={() => setPlay(m)}
+                  onLeaderboard={() => setLeaderboardFor(m)}
+                  onChanged={load}
+                />
               ))}
             </div>
           )}
@@ -747,6 +729,20 @@ function GroupDetail() {
       {practice && <PracticeDialog material={practice} onClose={() => setPractice(null)} />}
       {play && <PlayQuizDialog material={play} onClose={() => setPlay(null)} />}
       {leaderboardFor && <QuizLeaderboardDialog material={leaderboardFor} onClose={() => setLeaderboardFor(null)} />}
+      <UploadFileDialog
+        open={uploadOpen}
+        onClose={() => { setUploadOpen(false); load(); }}
+        groups={[{ id: groupId, name: group.name }]}
+        userId={user?.id}
+        fixedGroupId={groupId}
+      />
+      <FlashcardSetDialog
+        open={flashOpen}
+        onClose={() => { setFlashOpen(false); load(); }}
+        groups={[{ id: groupId, name: group.name }]}
+        userId={user?.id}
+        fixedGroupId={groupId}
+      />
     </div>
   );
 }
