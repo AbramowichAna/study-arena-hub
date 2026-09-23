@@ -47,12 +47,27 @@ function toLocalInput(iso: string) {
   return new Date(d.getTime() - off).toISOString().slice(0, 16);
 }
 
+// Lunes 00:00 (hora local) inclusive.
 function startOfWeek() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - day);
-  return d.toISOString();
+  return d;
+}
+
+// DENSE_RANK: mismo puntaje → misma posición; el siguiente puntaje distinto
+// ocupa la posición inmediatamente siguiente, sin saltos.
+function withDenseRank<T extends { points: number }>(sorted: T[]): (T & { position: number })[] {
+  let lastPoints: number | null = null;
+  let position = 0;
+  return sorted.map((r) => {
+    if (lastPoints === null || r.points !== lastPoints) {
+      position += 1;
+      lastPoints = r.points;
+    }
+    return { ...r, position };
+  });
 }
 
 async function openFile(path: string | null) {
@@ -68,7 +83,7 @@ function GroupDetail() {
   const navigate = useNavigate();
   const [group, setGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
-  const [ranking, setRanking] = useState<{ user_id: string; name: string; points: number }[]>([]);
+  const [ranking, setRanking] = useState<{ user_id: string; name: string; points: number; position: number }[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
 
@@ -107,22 +122,47 @@ function GroupDetail() {
 
     const memberIds = ((m as any) ?? []).map((x: any) => x.user_id);
     if (memberIds.length) {
-      const weekStart = startOfWeek();
-      const { data: pe } = await supabase.from("point_events")
-        .select("user_id,points,profiles(name)")
-        .in("user_id", memberIds)
-        .gte("created_at", weekStart);
+      // Materialización lazy: procesa participaciones de sesiones ya finalizadas
+      // que todavía no generaron puntos para este grupo. Si el usuario no es
+      // miembro activo, el RPC rechaza y no se dispara nada (RLS/guard interno).
+      await supabase.rpc("award_pending_session_points", { p_group_id: groupId });
+
+      const weekStartDate = startOfWeek();
+      const weekStart = weekStartDate.toISOString();
+      const weekEnd = new Date(weekStartDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [{ data: pt }, { data: pe }] = await Promise.all([
+        supabase.from("point_transactions")
+          .select("user_id,points")
+          .eq("group_id", groupId)
+          .gte("earned_at", weekStart)
+          .lt("earned_at", weekEnd),
+        // Los quizzes todavía viven en point_events (fuera del alcance de este
+        // modelo de sesiones) y se siguen sumando al mismo ranking semanal.
+        supabase.from("point_events")
+          .select("user_id,points")
+          .eq("type", "quiz_score")
+          .in("user_id", memberIds)
+          .gte("created_at", weekStart)
+          .lt("created_at", weekEnd),
+      ]);
+
+      // Parte de los miembros activos del grupo (incluye a los de 0 puntos).
       const map = new Map<string, { user_id: string; name: string; points: number }>();
-      for (const e of (pe ?? []) as any[]) {
-        const cur = map.get(e.user_id) ?? { user_id: e.user_id, name: e.profiles?.name ?? "?", points: 0 };
-        cur.points += e.points;
-        map.set(e.user_id, cur);
-      }
-      // include members with 0
       for (const mem of (m as any[])) {
-        if (!map.has(mem.user_id)) map.set(mem.user_id, { user_id: mem.user_id, name: mem.profiles?.name ?? "?", points: 0 });
+        map.set(mem.user_id, { user_id: mem.user_id, name: mem.profiles?.name ?? "?", points: 0 });
       }
-      setRanking(Array.from(map.values()).sort((a, b) => b.points - a.points));
+      for (const t of (pt ?? []) as any[]) {
+        const cur = map.get(t.user_id);
+        if (cur) cur.points += t.points;
+      }
+      for (const e of (pe ?? []) as any[]) {
+        const cur = map.get(e.user_id);
+        if (cur) cur.points += e.points;
+      }
+
+      const sorted = Array.from(map.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+      setRanking(withDenseRank(sorted));
     }
 
     const { data: mat } = await supabase.from("study_materials").select("id,name,type,subject,file_url,group_id,user_id").eq("group_id", groupId).order("created_at", { ascending: false });
@@ -497,9 +537,9 @@ function GroupDetail() {
           <Card className="p-5 border-[0.5px]">
             <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Ranking Semanal</h3>
             <div className="space-y-3">
-              {ranking.map((r, i) => (
+              {ranking.map((r) => (
                 <div key={r.user_id} className="flex items-center gap-3">
-                  <div className="w-5 text-xs font-medium text-muted-foreground text-center">{i + 1}</div>
+                  <div className="w-5 text-xs font-medium text-muted-foreground text-center">{r.position}</div>
                   <Avatar name={r.name} size={28} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{r.name}</div>

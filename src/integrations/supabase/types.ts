@@ -223,6 +223,57 @@ export type Database = {
           },
         ]
       }
+      point_transactions: {
+        Row: {
+          created_at: string
+          earned_at: string
+          group_id: string
+          id: string
+          points: number
+          reason: Database["public"]["Enums"]["point_reason"]
+          source_id: string
+          source_type: Database["public"]["Enums"]["point_source_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          earned_at: string
+          group_id: string
+          id?: string
+          points: number
+          reason: Database["public"]["Enums"]["point_reason"]
+          source_id: string
+          source_type: Database["public"]["Enums"]["point_source_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          earned_at?: string
+          group_id?: string
+          id?: string
+          points?: number
+          reason?: Database["public"]["Enums"]["point_reason"]
+          source_id?: string
+          source_type?: Database["public"]["Enums"]["point_source_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_transactions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -549,6 +600,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_pending_session_points: {
+        Args: { p_group_id: string }
+        Returns: undefined
+      }
       is_group_admin: {
         Args: { _group: string; _user: string }
         Returns: boolean
@@ -567,6 +622,8 @@ export type Database = {
       material_type: "flashcard_set" | "quiz" | "file"
       member_role: "admin" | "member"
       point_event_type: "session_complete" | "abandon_penalty" | "quiz_score"
+      point_reason: "SESSION_PARTICIPATION"
+      point_source_type: "SESSION"
       room_status: "waiting" | "active" | "finished"
       session_phase: "focus" | "break"
     }
@@ -700,6 +757,8 @@ export const Constants = {
       material_type: ["flashcard_set", "quiz", "file"],
       member_role: ["admin", "member"],
       point_event_type: ["session_complete", "abandon_penalty", "quiz_score"],
+      point_reason: ["SESSION_PARTICIPATION"],
+      point_source_type: ["SESSION"],
       room_status: ["waiting", "active", "finished"],
       session_phase: ["focus", "break"],
     },

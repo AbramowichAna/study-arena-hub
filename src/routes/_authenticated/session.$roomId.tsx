@@ -123,17 +123,19 @@ function SessionPage() {
 
   const complete = async () => {
     if (!user) return;
-    await supabase.from("point_events").insert({ user_id: user.id, type: "session_complete", points: 100 });
+    // Los puntos se materializan de forma lazy (por participación real) cuando
+    // alguien consulta el ranking semanal del grupo, no acá.
     await supabase.from("rooms").update({ status: "finished" }).eq("id", roomId);
     setCelebrate(true);
   };
 
-  // Aplica la penalización por abandono (sin navegar; la navegación la resuelve el blocker)
-  const abandonPenalty = async () => {
+  // Registra la salida de la sesión (sin navegar; la navegación la resuelve el blocker).
+  // No se pierden puntos por abandonar: los puntos se calculan luego según el
+  // tiempo real que estuviste presente (joined_at → left_at) sobre la duración planeada.
+  const leaveSession = async () => {
     if (!user) return;
-    await supabase.from("point_events").insert({ user_id: user.id, type: "abandon_penalty", points: -20 });
     await supabase.from("room_participants").update({ left_at: new Date().toISOString() }).match({ room_id: roomId, user_id: user.id });
-    toast.error("Sesión abandonada: -20 pts");
+    toast("Saliste de la sesión. Tus puntos dependerán del tiempo que estuviste presente.");
   };
 
   // Bloquear cualquier navegación fuera de la sesión mientras esté activa
@@ -149,7 +151,7 @@ function SessionPage() {
   const leavingRef = useRef(false);
   const confirmLeave = async () => {
     leavingRef.current = true;
-    await abandonPenalty();
+    await leaveSession();
     blocker.proceed?.();
   };
 
@@ -201,7 +203,7 @@ function SessionPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Abandonar sesión?</AlertDialogTitle>
             <AlertDialogDescription>
-              Si sales de la sesión se contará como abandono y perderás 20 puntos.
+              No perderás puntos por salir: tus puntos se calculan según el tiempo que estuviste presente en la sesión.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -335,7 +337,7 @@ function SessionPage() {
         <DialogContent className="text-center py-10">
           <div className="text-5xl mb-2">🎉</div>
           <div className="text-2xl font-semibold">¡Sesión completada!</div>
-          <div className="text-muted-foreground my-2">Has ganado +100 pts</div>
+          <div className="text-muted-foreground my-2">Tus puntos se sumarán al ranking semanal del grupo según tu participación.</div>
           <Button onClick={() => navigate({ to: "/dashboard" })}>Volver al panel</Button>
         </DialogContent>
       </Dialog>
