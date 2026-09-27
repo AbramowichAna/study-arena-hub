@@ -16,7 +16,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMaterialsRouteImport } from './routes/_authenticated/materials'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
+import { Route as JoinTokenRouteImport } from './routes/join.$token'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups/index'
 import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups/$groupId'
 import { Route as AuthenticatedSessionRoomIdRouteImport } from './routes/_authenticated/session.$roomId'
@@ -55,9 +55,9 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
-  id: '/join/$inviteCode',
-  path: '/join/$inviteCode',
+const JoinTokenRoute = JoinTokenRouteImport.update({
+  id: '/join/$token',
+  path: '/join/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedGroupsIndexRoute =
@@ -86,7 +86,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/join/$token': typeof JoinTokenRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
@@ -98,7 +98,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/materials': typeof AuthenticatedMaterialsRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/join/$token': typeof JoinTokenRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
@@ -112,7 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/materials': typeof AuthenticatedMaterialsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/join/$token': typeof JoinTokenRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/session/$roomId': typeof AuthenticatedSessionRoomIdRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
@@ -126,7 +126,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/materials'
     | '/profile'
-    | '/join/$inviteCode'
+    | '/join/$token'
     | '/groups/$groupId'
     | '/session/$roomId'
     | '/groups/'
@@ -138,7 +138,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/materials'
     | '/profile'
-    | '/join/$inviteCode'
+    | '/join/$token'
     | '/groups/$groupId'
     | '/session/$roomId'
     | '/groups'
@@ -151,7 +151,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/materials'
     | '/_authenticated/profile'
-    | '/join/$inviteCode'
+    | '/join/$token'
     | '/_authenticated/groups/$groupId'
     | '/_authenticated/session/$roomId'
     | '/_authenticated/groups/'
@@ -162,7 +162,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
-  JoinInviteCodeRoute: typeof JoinInviteCodeRoute
+  JoinTokenRoute: typeof JoinTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -216,11 +216,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/join/$inviteCode': {
-      id: '/join/$inviteCode'
-      path: '/join/$inviteCode'
-      fullPath: '/join/$inviteCode'
-      preLoaderRoute: typeof JoinInviteCodeRouteImport
+    '/join/$token': {
+      id: '/join/$token'
+      path: '/join/$token'
+      fullPath: '/join/$token'
+      preLoaderRoute: typeof JoinTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/groups/': {
@@ -274,7 +274,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
-  JoinInviteCodeRoute: JoinInviteCodeRoute,
+  JoinTokenRoute: JoinTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

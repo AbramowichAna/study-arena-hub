@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,20 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { readPendingInvite } from "@/lib/pendingInvite";
+import { resolvePendingInvite } from "@/lib/joinGroup";
 import { toast } from "sonner";
-
-type RegisterSearch = { invite?: string };
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
-  validateSearch: (s: Record<string, unknown>): RegisterSearch => ({
-    invite: typeof s.invite === "string" ? s.invite : undefined,
-  }),
 });
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const { invite } = useSearch({ from: "/register" });
+  const invite = readPendingInvite();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -95,7 +92,7 @@ function RegisterPage() {
       const normalizedEmail = email.trim().toLowerCase();
       
       const redirect = invite
-        ? `${window.location.origin}/join/${invite}`
+        ? `${window.location.origin}/join/${invite.token}`
         : `${window.location.origin}/dashboard`;
         
       const { data, error } = await supabase.auth.signUp({
@@ -121,11 +118,24 @@ function RegisterPage() {
         return;
       }
 
-      // If session is immediately available (auto-confirm) and invite present, join now
-      if (data.session && invite) {
-        navigate({ to: "/join/$inviteCode", params: { inviteCode: invite } });
+      if (invite) {
+        // No toast, no /login redirect for the invite flow: join right away if we can.
+        let hasSession = !!data.session;
+        if (!hasSession) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+          hasSession = !signInError;
+        }
+        if (hasSession) {
+          const destination = await resolvePendingInvite();
+          navigate({ to: (destination ?? "/dashboard") as any });
+        } else {
+          // Needs email confirmation first; the invite stays pending in sessionStorage
+          // and gets resolved after a successful login.
+          navigate({ to: "/login" });
+        }
         return;
       }
+
       if (data.session) {
         navigate({ to: "/dashboard" });
         return;

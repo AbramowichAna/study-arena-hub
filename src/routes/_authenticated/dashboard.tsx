@@ -80,11 +80,12 @@ function Dashboard() {
 
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       const dayAgo = new Date(Date.now() - 86400000).toISOString();
-      const { data: myEvents } = await supabase
-        .from("point_events").select("type,created_at")
-        .eq("user_id", user.id).gte("created_at", weekAgo);
-      const weekSessions = (myEvents ?? []).filter((e: any) => e.type === "session_complete").length;
-      const todaySessions = (myEvents ?? []).filter((e: any) => e.type === "session_complete" && e.created_at >= dayAgo).length;
+      // Sesiones con participación significativa (>0 pts, i.e. >=20% de presencia).
+      const { data: myPoints } = await supabase
+        .from("point_transactions").select("points,earned_at")
+        .eq("user_id", user.id).eq("source_type", "SESSION").gt("points", 0).gte("earned_at", weekAgo);
+      const weekSessions = (myPoints ?? []).length;
+      const todaySessions = (myPoints ?? []).filter((e: any) => e.earned_at >= dayAgo).length;
       setStats({ weekSessions, todayMinutes: (todaySessions * 25) / 60 });
     }
   };

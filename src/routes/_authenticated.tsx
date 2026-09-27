@@ -15,7 +15,7 @@ function AuthLayout() {
   useEffect(() => {
     if (!loading && !user) {
       // Preserve the current URL as the intended destination
-      const redirectTo = encodeURIComponent(location.pathname + location.search);
+      const redirectTo = encodeURIComponent(location.href);
       navigate({ 
         to: "/login", 
         search: { redirect: redirectTo },

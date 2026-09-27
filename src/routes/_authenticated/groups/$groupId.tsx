@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, FileText, Brain, ExternalLink, Play, Users, Pencil, Trash2, Clock } from "lucide-react";
+import { X, ArrowLeft, Trophy, Search, UserPlus, Plus, BookOpen, Users, Pencil, Trash2, Clock, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Avatar } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +16,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, type MaterialLike } from "@/components/materials/MaterialActionDialogs";
+import {
+  PracticeDialog, PlayQuizDialog, QuizLeaderboardDialog, UploadFileDialog, FlashcardSetDialog, MaterialCard,
+  type MaterialLike,
+} from "@/components/materials/MaterialActionDialogs";
 
 export const Route = createFileRoute("/_authenticated/groups/$groupId")({
   component: GroupDetail,
@@ -47,19 +51,27 @@ function toLocalInput(iso: string) {
   return new Date(d.getTime() - off).toISOString().slice(0, 16);
 }
 
+// Lunes 00:00 (hora local) inclusive.
 function startOfWeek() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - day);
-  return d.toISOString();
+  return d;
 }
 
-async function openFile(path: string | null) {
-  if (!path) return;
-  const { data, error } = await supabase.storage.from("study-files").createSignedUrl(path, 3600);
-  if (error || !data) return toast.error("No se pudo abrir el archivo");
-  window.open(data.signedUrl, "_blank");
+// DENSE_RANK: mismo puntaje → misma posición; el siguiente puntaje distinto
+// ocupa la posición inmediatamente siguiente, sin saltos.
+function withDenseRank<T extends { points: number }>(sorted: T[]): (T & { position: number })[] {
+  let lastPoints: number | null = null;
+  let position = 0;
+  return sorted.map((r) => {
+    if (lastPoints === null || r.points !== lastPoints) {
+      position += 1;
+      lastPoints = r.points;
+    }
+    return { ...r, position };
+  });
 }
 
 function GroupDetail() {
@@ -68,7 +80,7 @@ function GroupDetail() {
   const navigate = useNavigate();
   const [group, setGroup] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
-  const [ranking, setRanking] = useState<{ user_id: string; name: string; points: number }[]>([]);
+  const [ranking, setRanking] = useState<{ user_id: string; name: string; points: number; position: number }[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
 
@@ -76,6 +88,12 @@ function GroupDetail() {
   const [inviteQuery, setInviteQuery] = useState("");
   const [inviteResults, setInviteResults] = useState<UserResult[]>([]);
   const [selectedInvitee, setSelectedInvitee] = useState<UserResult | null>(null);
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState(false);
+  const [linkActionLoading, setLinkActionLoading] = useState(false);
+  const [regenConfirm, setRegenConfirm] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const [sessionOpen, setSessionOpen] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -89,6 +107,8 @@ function GroupDetail() {
   const [practice, setPractice] = useState<Material | null>(null);
   const [play, setPlay] = useState<Material | null>(null);
   const [leaderboardFor, setLeaderboardFor] = useState<Material | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [flashOpen, setFlashOpen] = useState(false);
 
   // Re-render periódico para habilitar "Entrar" cuando llega el horario programado
   const [, setNow] = useState(Date.now());
@@ -107,22 +127,47 @@ function GroupDetail() {
 
     const memberIds = ((m as any) ?? []).map((x: any) => x.user_id);
     if (memberIds.length) {
-      const weekStart = startOfWeek();
-      const { data: pe } = await supabase.from("point_events")
-        .select("user_id,points,profiles(name)")
-        .in("user_id", memberIds)
-        .gte("created_at", weekStart);
+      // Materialización lazy: procesa participaciones de sesiones ya finalizadas
+      // que todavía no generaron puntos para este grupo. Si el usuario no es
+      // miembro activo, el RPC rechaza y no se dispara nada (RLS/guard interno).
+      await supabase.rpc("award_pending_session_points", { p_group_id: groupId });
+
+      const weekStartDate = startOfWeek();
+      const weekStart = weekStartDate.toISOString();
+      const weekEnd = new Date(weekStartDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [{ data: pt }, { data: pe }] = await Promise.all([
+        supabase.from("point_transactions")
+          .select("user_id,points")
+          .eq("group_id", groupId)
+          .gte("earned_at", weekStart)
+          .lt("earned_at", weekEnd),
+        // Los quizzes todavía viven en point_events (fuera del alcance de este
+        // modelo de sesiones) y se siguen sumando al mismo ranking semanal.
+        supabase.from("point_events")
+          .select("user_id,points")
+          .eq("type", "quiz_score")
+          .in("user_id", memberIds)
+          .gte("created_at", weekStart)
+          .lt("created_at", weekEnd),
+      ]);
+
+      // Parte de los miembros activos del grupo (incluye a los de 0 puntos).
       const map = new Map<string, { user_id: string; name: string; points: number }>();
-      for (const e of (pe ?? []) as any[]) {
-        const cur = map.get(e.user_id) ?? { user_id: e.user_id, name: e.profiles?.name ?? "?", points: 0 };
-        cur.points += e.points;
-        map.set(e.user_id, cur);
-      }
-      // include members with 0
       for (const mem of (m as any[])) {
-        if (!map.has(mem.user_id)) map.set(mem.user_id, { user_id: mem.user_id, name: mem.profiles?.name ?? "?", points: 0 });
+        map.set(mem.user_id, { user_id: mem.user_id, name: mem.profiles?.name ?? "?", points: 0 });
       }
-      setRanking(Array.from(map.values()).sort((a, b) => b.points - a.points));
+      for (const t of (pt ?? []) as any[]) {
+        const cur = map.get(t.user_id);
+        if (cur) cur.points += t.points;
+      }
+      for (const e of (pe ?? []) as any[]) {
+        const cur = map.get(e.user_id);
+        if (cur) cur.points += e.points;
+      }
+
+      const sorted = Array.from(map.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+      setRanking(withDenseRank(sorted));
     }
 
     const { data: mat } = await supabase.from("study_materials").select("id,name,type,subject,file_url,group_id,user_id").eq("group_id", groupId).order("created_at", { ascending: false });
@@ -175,6 +220,33 @@ function GroupDetail() {
     toast.success(`Invitación enviada a ${selectedInvitee.name}`);
     setSelectedInvitee(null); setInviteQuery("");
     load();
+  };
+
+  const loadInviteLink = async () => {
+    setLinkLoading(true); setLinkError(false);
+    const { data, error } = await supabase.from("group_invite_links").select("token").eq("group_id", groupId).maybeSingle();
+    if (error) setLinkError(true);
+    else setLinkToken(data?.token ?? null);
+    setLinkLoading(false);
+  };
+
+  const generateLink = async () => {
+    setLinkActionLoading(true);
+    const { data, error } = await supabase.rpc("regenerate_group_invite_link", { p_group_id: groupId });
+    if (error) toast.error(error.message);
+    else { setLinkToken(data as string); setRegenConfirm(false); }
+    setLinkActionLoading(false);
+  };
+
+  const copyLink = async () => {
+    if (!linkToken) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/join/${linkToken}`);
+      setCopyFailed(false);
+      toast.success("Link copiado");
+    } catch {
+      setCopyFailed(true);
+    }
   };
 
   const resetSessionForm = () => {
@@ -278,7 +350,14 @@ function GroupDetail() {
         </div>
         <div className="flex gap-2">
           {isAdmin && (
-            <Dialog open={inviteOpen} onOpenChange={v => { setInviteOpen(v); if (!v) { setInviteQuery(""); setInviteResults([]); setSelectedInvitee(null); } }}>
+            <Dialog open={inviteOpen} onOpenChange={v => {
+              setInviteOpen(v);
+              if (v) { loadInviteLink(); }
+              else {
+                setInviteQuery(""); setInviteResults([]); setSelectedInvitee(null);
+                setLinkToken(null); setLinkError(false); setRegenConfirm(false); setCopyFailed(false);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button variant="outline"><UserPlus className="h-4 w-4 mr-1" /> Invitar</Button>
               </DialogTrigger>
@@ -317,6 +396,52 @@ function GroupDetail() {
                           <div className="text-xs text-muted-foreground mt-2">Sin resultados</div>
                         )}
                       </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">o</span>
+                    <Separator className="flex-1" />
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium mb-2">Link de invitación</div>
+                    {linkLoading ? (
+                      <div className="text-xs text-muted-foreground">Cargando…</div>
+                    ) : linkError ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-destructive">No se pudo cargar el link de invitación.</div>
+                        <Button size="sm" variant="outline" onClick={loadInviteLink}>Reintentar</Button>
+                      </div>
+                    ) : !linkToken ? (
+                      <Button variant="outline" onClick={generateLink} disabled={linkActionLoading}>
+                        {linkActionLoading ? "Generando…" : "Generar link de invitación"}
+                      </Button>
+                    ) : regenConfirm ? (
+                      <div className="space-y-3 p-3 rounded-md border bg-muted/30">
+                        <div className="text-sm">El link anterior va a dejar de funcionar.</div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setRegenConfirm(false)} disabled={linkActionLoading}>Cancelar</Button>
+                          <Button size="sm" onClick={generateLink} disabled={linkActionLoading}>
+                            {linkActionLoading ? "Generando…" : "Generar nuevo"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input aria-label="Link de invitación" readOnly value={`${window.location.origin}/join/${linkToken}`} />
+                          <Button variant="outline" onClick={copyLink}>Copiar</Button>
+                        </div>
+                        {copyFailed && (
+                          <div className="text-xs text-destructive">No se pudo copiar. Copiá la URL manualmente.</div>
+                        )}
+                        <button type="button" onClick={() => setRegenConfirm(true)}
+                          className="text-xs text-muted-foreground hover:text-foreground underline">
+                          Generar nuevo link
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -497,9 +622,9 @@ function GroupDetail() {
           <Card className="p-5 border-[0.5px]">
             <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Ranking Semanal</h3>
             <div className="space-y-3">
-              {ranking.map((r, i) => (
+              {ranking.map((r) => (
                 <div key={r.user_id} className="flex items-center gap-3">
-                  <div className="w-5 text-xs font-medium text-muted-foreground text-center">{i + 1}</div>
+                  <div className="w-5 text-xs font-medium text-muted-foreground text-center">{r.position}</div>
                   <Avatar name={r.name} size={28} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{r.name}</div>
@@ -566,51 +691,35 @@ function GroupDetail() {
         </TabsContent>
 
         <TabsContent value="materials" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Compartí archivos y tarjetas con todo el grupo.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}><Upload className="h-3.5 w-3.5 mr-1" /> Subir archivo</Button>
+              <Button size="sm" onClick={() => setFlashOpen(true)}><BookOpen className="h-3.5 w-3.5 mr-1" /> Crear tarjetas</Button>
+            </div>
+          </div>
+
           {materials.length === 0 ? (
             <Card className="p-12 text-center border-[0.5px]">
               <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-medium mb-1">Aún no hay materiales</h3>
-              <p className="text-sm text-muted-foreground mb-4">Comparte archivos, tarjetas o cuestionarios con este grupo desde Materiales.</p>
-              <Link to="/materials"><Button><Plus className="h-4 w-4 mr-1" /> Ir a Materiales</Button></Link>
+              <p className="text-sm text-muted-foreground mb-4">Compartí un archivo o creá un set de tarjetas para este grupo.</p>
+              <Button onClick={() => setFlashOpen(true)}><Plus className="h-4 w-4 mr-1" /> Crear tarjetas</Button>
             </Card>
           ) : (
             <div className="grid grid-cols-3 gap-4">
               {materials.map(m => (
-                <Card key={m.id} className="p-5 border-[0.5px] flex flex-col">
-                  <div className={`h-9 w-9 rounded-md flex items-center justify-center mb-3 ${
-                    m.type === "quiz" ? "bg-warning/10 text-warning" :
-                    m.type === "flashcard_set" ? "bg-primary/10 text-primary" :
-                    "bg-success/10 text-success"
-                  }`}>
-                    {m.type === "quiz" ? <Brain className="h-4 w-4" /> :
-                     m.type === "flashcard_set" ? <BookOpen className="h-4 w-4" /> :
-                     <FileText className="h-4 w-4" />}
-                  </div>
-                  <div className="font-medium">{m.name}</div>
-                  {m.subject && <div className="text-xs text-muted-foreground mt-0.5">{m.subject}</div>}
-                  <div className="mt-4 flex gap-2">
-                    {m.type === "file" && (
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => openFile(m.file_url)}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Ver
-                      </Button>
-                    )}
-                    {m.type === "flashcard_set" && (
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setPractice(m)}>
-                        <Play className="h-3.5 w-3.5 mr-1" /> Practicar
-                      </Button>
-                    )}
-                    {m.type === "quiz" && (
-                      <>
-                        <Button size="sm" className="flex-1" onClick={() => setPlay(m)}>
-                          <Play className="h-3.5 w-3.5 mr-1" /> Jugar
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => setLeaderboardFor(m)}>
-                          <Trophy className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </Card>
+                <MaterialCard
+                  key={m.id}
+                  material={m}
+                  currentUserId={user?.id}
+                  isGroupAdmin={isAdmin}
+                  groups={[{ id: groupId, name: group.name }]}
+                  onPractice={() => setPractice(m)}
+                  onPlay={() => setPlay(m)}
+                  onLeaderboard={() => setLeaderboardFor(m)}
+                  onChanged={load}
+                />
               ))}
             </div>
           )}
@@ -620,6 +729,20 @@ function GroupDetail() {
       {practice && <PracticeDialog material={practice} onClose={() => setPractice(null)} />}
       {play && <PlayQuizDialog material={play} onClose={() => setPlay(null)} />}
       {leaderboardFor && <QuizLeaderboardDialog material={leaderboardFor} onClose={() => setLeaderboardFor(null)} />}
+      <UploadFileDialog
+        open={uploadOpen}
+        onClose={() => { setUploadOpen(false); load(); }}
+        groups={[{ id: groupId, name: group.name }]}
+        userId={user?.id}
+        fixedGroupId={groupId}
+      />
+      <FlashcardSetDialog
+        open={flashOpen}
+        onClose={() => { setFlashOpen(false); load(); }}
+        groups={[{ id: groupId, name: group.name }]}
+        userId={user?.id}
+        fixedGroupId={groupId}
+      />
     </div>
   );
 }

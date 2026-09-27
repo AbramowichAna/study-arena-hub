@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolvePendingInvite } from "@/lib/joinGroup";
 import { toast } from "sonner";
 
 type LoginSearch = { redirect?: string };
@@ -96,8 +97,9 @@ function LoginPage() {
       }
       
       toast.success("¡Bienvenido de vuelta!");
-      // Redirect to intended destination or default to /dashboard
-      const destination = redirect ? decodeURIComponent(redirect) : "/dashboard";
+      // A pending invite (from /join/:token) takes priority over the normal redirect
+      const pendingDestination = await resolvePendingInvite();
+      const destination = pendingDestination ?? (redirect ? decodeURIComponent(redirect) : "/dashboard");
       navigate({ to: destination as any, replace: true });
     } catch (error: any) {
       toast.error("Error de conexión. Por favor intenta nuevamente.");
