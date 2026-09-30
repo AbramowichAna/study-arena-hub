@@ -259,6 +259,58 @@ export type Database = {
           },
         ]
       }
+      point_transactions: {
+        Row: {
+          earned_at: string
+          group_id: string
+          id: string
+          points: number
+          room_participant_id: string
+          source_type: string
+          user_id: string
+        }
+        Insert: {
+          earned_at?: string
+          group_id: string
+          id?: string
+          points: number
+          room_participant_id: string
+          source_type?: string
+          user_id: string
+        }
+        Update: {
+          earned_at?: string
+          group_id?: string
+          id?: string
+          points?: number
+          room_participant_id?: string
+          source_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_transactions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_transactions_room_participant_id_fkey"
+            columns: ["room_participant_id"]
+            isOneToOne: true
+            referencedRelation: "room_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -585,6 +637,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_pending_session_points: {
+        Args: { p_group_id: string }
+        Returns: undefined
+      }
       get_group_invite_preview: {
         Args: { p_token: string }
         Returns: {
